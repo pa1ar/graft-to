@@ -5,14 +5,19 @@
 
 import type { CraftBlock, GraphNode, GraphLink, GraphData } from './types';
 
-const BLOCK_LINK_REGEX = /\(block:\/\/([^)]+)\)/g;
+// Match markdown links with block:// URLs: [text](block://ID)
+const BLOCK_LINK_REGEX = /\[([^\]]+)\]\(block:\/\/([^)]+)\)/g;
 
 export function extractBlockLinks(markdown: string): string[] {
   const links: string[] = [];
   let match;
   
+  // Reset regex state
+  BLOCK_LINK_REGEX.lastIndex = 0;
+  
   while ((match = BLOCK_LINK_REGEX.exec(markdown)) !== null) {
-    links.push(match[1]);
+    // match[2] contains the block ID
+    links.push(match[2]);
   }
   
   return links;
@@ -41,6 +46,8 @@ export function buildGraphData(
   const nodesMap = new Map<string, GraphNode>();
   const linksMap = new Map<string, Set<string>>();
   
+  console.log('Building graph with', documents.length, 'documents');
+  
   for (const doc of documents) {
     if (!nodesMap.has(doc.id)) {
       nodesMap.set(doc.id, {
@@ -58,6 +65,8 @@ export function buildGraphData(
       const links = extractLinksFromBlock(block);
       
       if (links.length > 0) {
+        console.log(`Document "${doc.title}" (${doc.id}) has links:`, links);
+        
         if (!linksMap.has(doc.id)) {
           linksMap.set(doc.id, new Set());
         }
@@ -65,11 +74,19 @@ export function buildGraphData(
         for (const targetId of links) {
           linksMap.get(doc.id)!.add(targetId);
           
+          // Check if target is a document ID
+          const targetDoc = documents.find(d => d.id === targetId);
+          if (targetDoc) {
+            console.log(`  -> Links to document "${targetDoc.title}"`);
+          } else {
+            console.log(`  -> Links to unknown block ${targetId}`);
+          }
+          
           if (!nodesMap.has(targetId)) {
             nodesMap.set(targetId, {
               id: targetId,
-              title: `Block ${targetId}`,
-              type: 'block',
+              title: targetDoc?.title || `Block ${targetId}`,
+              type: targetDoc ? 'document' : 'block',
               linkCount: 0,
             });
           }

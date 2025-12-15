@@ -89,10 +89,17 @@ export class CraftGraphFetcher {
       maxDepth: maxDepth.toString(),
     });
     
-    // Handle array response or empty
+    // Handle array response
     if (Array.isArray(response)) {
       return response;
     }
+    
+    // Handle single block object (root page) - wrap it in an array
+    if (response && response.id && response.type) {
+      return [response];
+    }
+    
+    // Handle object with blocks property
     if (response && Array.isArray(response.blocks)) {
       return response.blocks;
     }
