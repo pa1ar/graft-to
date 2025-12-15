@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Graft
+
+**Graph visualization for Craft documents**
+
+Graft creates an interactive force-directed graph of your Craft document connections, making it easy to see how your notes relate to each other.
+
+## Features
+
+- **Interactive Graph**: Force-directed layout shows document relationships
+- **Privacy First**: All API calls happen in your browser - your API URL never touches our servers
+- **Progressive Loading**: Real-time progress as your graph builds
+- **Node Preview**: Click any node to see document details
+- **Graph Statistics**: See connection counts, orphan nodes, and most-connected documents
+- **Direct Links**: Open documents directly in Craft app
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- A Craft account with API access
+- Your Craft API URL (from Craft settings)
+- Your Craft API Key (from Craft settings)
+
+### Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+# Install dependencies
+bun install
+
+# Run development server
 bun dev
+
+# Build for production
+bun build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Deployment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+This project is configured to run on Vercel with the Bun runtime:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Push to GitHub
+2. Import to Vercel
+3. Deploy (no configuration needed - `vercel.json` handles Bun setup)
 
-## Learn More
+## Architecture
 
-To learn more about Next.js, take a look at the following resources:
+### Privacy-First Proxy
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To avoid CORS issues, API requests are proxied through a Next.js API route (`/api/craft/[...path]`). Your API credentials are:
+- Stored in browser `localStorage` only
+- Passed via request headers (never stored on server)
+- Never logged or persisted server-side
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The proxy simply forwards requests with your credentials and returns responses - no data is retained.
 
-## Deploy on Vercel
+### Reusable Graph Library
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The core graph processing logic lives in `lib/graph/` and is framework-agnostic. Craft developers can extract and use this library independently:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```typescript
+import { createFetcher } from './lib/graph'
+
+const fetcher = createFetcher(apiUrl)
+const graph = await fetcher.buildGraph({
+  onProgress: (current, total, message) => {
+    console.log(`${current}/${total}: ${message}`)
+  }
+})
+```
+
+## Project Structure
+
+```
+lib/graph/          # Standalone graph library
+├── types.ts        # TypeScript types
+├── parser.ts       # Link extraction and graph building
+├── fetcher.ts      # Craft API client
+└── index.ts        # Public exports
+
+components/
+├── graph/          # Graph visualization components
+└── setup/          # API setup form
+
+app/
+├── page.tsx        # Landing page
+└── graph/          # Graph visualization page
+```
+
+## How It Works
+
+1. **Fetch Documents**: Retrieves all documents from your Craft space
+2. **Extract Links**: Parses markdown content for `block://` links
+3. **Build Graph**: Creates nodes and edges from document relationships
+4. **Visualize**: Renders interactive force-directed graph
+
+## Tech Stack
+
+- **Runtime**: Next.js 16 on Bun (via Vercel)
+- **Graph**: react-force-graph-2d
+- **UI**: shadcn/ui with Craft-inspired design
+- **Analytics**: Vercel Analytics
+
+## Security
+
+- API credentials (URL and key) stored in browser `localStorage` only
+- Credentials passed via headers, never stored on server
+- Proxy route forwards requests without logging or persistence
+- No database, no data retention
+
+## License
+
+MIT
+
+## Contributing
+
+Built for the Craft hackathon. Contributions welcome!

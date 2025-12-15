@@ -1,8 +1,49 @@
 ---
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
+description: Graft - Craft document graph visualization project
 globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
 alwaysApply: false
 ---
+
+# Graft - Craft Document Graph Visualization
+
+## Project Overview
+Graft visualizes Craft document connections as an interactive force-directed graph. Built for the Craft hackathon with clean architecture for potential integration by Craft team.
+
+## Stack
+- **Runtime**: Next.js 16 on Bun runtime (via Vercel)
+- **Graph**: react-force-graph-2d for 2D visualization
+- **UI**: shadcn/ui components with Craft-inspired design
+- **Analytics**: Vercel Analytics
+- **Deployment**: Vercel with `bunVersion: "1.x"` in vercel.json
+
+## Architecture Principles
+1. **Privacy-first proxy**: API requests proxied through `/api/craft` to avoid CORS. Credentials passed via headers, never stored server-side.
+2. **Framework-agnostic graph library**: `lib/graph/` can be extracted and used independently by Craft team.
+3. **Progressive loading**: Graph builds with progress feedback for better UX.
+
+## Key Directories
+- `lib/graph/`: Standalone graph library (types, parser, fetcher)
+- `components/graph/`: React components for visualization
+- `components/setup/`: API connection setup UI
+- `hooks/`: Custom hooks for graph data management
+
+## Development
+```bash
+bun dev        # Start dev server
+bun build      # Build for production
+```
+
+## Craft API Integration
+- Documents fetched via `/documents` endpoint
+- Block content via `/blocks?id={docId}&maxDepth=-1`
+- Links extracted from markdown using `block://` regex pattern
+- Bidirectional link mapping for graph relationships
+
+## Security
+- No server-side storage of user data
+- API credentials passed via headers only (never stored)
+- Proxy route forwards requests without logging
+- No database, no data retention
 
 Default to using Bun instead of Node.js.
 
