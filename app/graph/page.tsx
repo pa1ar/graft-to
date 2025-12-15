@@ -101,7 +101,11 @@ export default function GraphPage() {
         height={dimensions.height}
       />
 
-      <NodePreview node={selectedNode} onClose={() => setSelectedNode(null)} />
+      <NodePreview 
+        node={selectedNode} 
+        graphData={graphData}
+        onClose={() => setSelectedNode(null)} 
+      />
     </div>
   )
 }

@@ -96,7 +96,14 @@ export function buildGraphData(
   }
   
   const links: GraphLink[] = [];
+  
+  // Build links and track relationships
   for (const [source, targets] of linksMap.entries()) {
+    const sourceNode = nodesMap.get(source);
+    if (sourceNode) {
+      sourceNode.linksTo = Array.from(targets);
+    }
+    
     for (const target of targets) {
       if (source !== target) {
         links.push({ source, target });
@@ -105,7 +112,14 @@ export function buildGraphData(
         const targetNode = nodesMap.get(target);
         
         if (sourceNode) sourceNode.linkCount++;
-        if (targetNode) targetNode.linkCount++;
+        if (targetNode) {
+          targetNode.linkCount++;
+          // Track incoming links
+          if (!targetNode.linkedFrom) {
+            targetNode.linkedFrom = [];
+          }
+          targetNode.linkedFrom.push(source);
+        }
       }
     }
   }

@@ -33,13 +33,13 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
       height={height}
       nodeLabel={(node: any) => node.title}
       nodeColor={(node: any) => node.color || "#94a3b8"}
-      nodeRelSize={6}
-      nodeVal={(node: any) => Math.max(3, node.linkCount)}
-      linkColor={() => "#e2e8f0"}
-      linkWidth={1.5}
-      linkDirectionalParticles={2}
-      linkDirectionalParticleWidth={2}
-      linkDirectionalParticleSpeed={0.005}
+      nodeRelSize={8}
+      nodeVal={(node: any) => Math.max(4, node.linkCount * 1.5)}
+      linkColor={() => "#cbd5e1"}
+      linkWidth={3}
+      linkDirectionalParticles={4}
+      linkDirectionalParticleWidth={4}
+      linkDirectionalParticleSpeed={0.006}
       onNodeClick={(node: any) => onNodeClick?.(node as GraphNode)}
       backgroundColor="#ffffff"
       cooldownTicks={100}

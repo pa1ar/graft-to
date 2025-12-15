@@ -9,6 +9,8 @@ export interface GraphNode {
   type: 'document' | 'block';
   linkCount: number;
   color?: string;
+  linksTo?: string[];
+  linkedFrom?: string[];
 }
 
 export interface GraphLink {

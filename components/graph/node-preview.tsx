@@ -5,20 +5,26 @@ import { IconX, IconExternalLink } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import type { GraphNode } from "@/lib/graph"
+import type { GraphNode, GraphData } from "@/lib/graph"
 
 interface NodePreviewProps {
   node: GraphNode | null
+  graphData: GraphData | null
   onClose: () => void
 }
 
-export function NodePreview({ node, onClose }: NodePreviewProps) {
+export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
   if (!node) return null
 
   const craftUrl = `craft://open?blockId=${node.id}`
+  
+  const getNodeTitle = (nodeId: string): string => {
+    const foundNode = graphData?.nodes.find(n => n.id === nodeId)
+    return foundNode?.title || nodeId
+  }
 
   return (
-    <div className="fixed right-0 top-0 z-50 h-full w-96 border-l bg-background shadow-lg">
+    <div className="fixed right-0 top-0 z-50 h-full w-96 overflow-auto border-l bg-background shadow-lg">
       <Card className="h-full rounded-none border-0">
         <CardHeader className="border-b">
           <div className="flex items-start justify-between">
@@ -45,8 +51,36 @@ export function NodePreview({ node, onClose }: NodePreviewProps) {
           <div className="space-y-4">
             <div>
               <h3 className="mb-2 text-sm font-medium">Document ID</h3>
-              <code className="rounded bg-muted px-2 py-1 text-xs">{node.id}</code>
+              <code className="rounded bg-muted px-2 py-1 text-xs break-all">{node.id}</code>
             </div>
+            
+            {node.linksTo && node.linksTo.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium">Links to ({node.linksTo.length})</h3>
+                <div className="space-y-2">
+                  {node.linksTo.map((linkId) => (
+                    <div key={linkId} className="rounded bg-muted p-2">
+                      <div className="text-sm font-medium">{getNodeTitle(linkId)}</div>
+                      <code className="text-xs text-muted-foreground break-all">{linkId}</code>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {node.linkedFrom && node.linkedFrom.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium">Linked from ({node.linkedFrom.length})</h3>
+                <div className="space-y-2">
+                  {node.linkedFrom.map((linkId) => (
+                    <div key={linkId} className="rounded bg-muted p-2">
+                      <div className="text-sm font-medium">{getNodeTitle(linkId)}</div>
+                      <code className="text-xs text-muted-foreground break-all">{linkId}</code>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             <Button
               variant="outline"
