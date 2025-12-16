@@ -1,27 +1,131 @@
 "use client"
 
 import * as React from "react"
-import { IconRefresh, IconHome } from "@tabler/icons-react"
+import { IconMoon, IconRefresh, IconSun } from "@tabler/icons-react"
+
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import type { GraphStats } from "@/lib/graph"
-import { getGraphStats } from "@/lib/graph"
+import { Field, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { GraphData } from "@/lib/graph"
+import { createFetcher, getGraphStats } from "@/lib/graph"
 
-interface GraphControlsProps {
-  graphData: any
-  onReload: () => void
-  onHome: () => void
+const STORAGE_KEY_URL = "craft_api_url"
+const STORAGE_KEY_KEY = "craft_api_key"
+const STORAGE_KEY_THEME = "graft_theme"
+const THEME_EVENT = "graft:theme-change"
+
+type Theme = "light" | "dark"
+
+interface ProgressState {
+  current: number
+  total: number
+  message: string
 }
 
-export function GraphControls({ graphData, onReload, onHome }: GraphControlsProps) {
-  const stats = graphData ? getGraphStats(graphData) : null
+interface GraphControlsProps {
+  graphData: GraphData | null
+  isLoading: boolean
+  progress: ProgressState
+  error?: string | null
+  onReload: () => void
+}
+
+export function GraphControls({ graphData, isLoading, progress, error, onReload }: GraphControlsProps) {
+  const stats = React.useMemo(() => (graphData ? getGraphStats(graphData) : null), [graphData])
+  const [apiUrl, setApiUrl] = React.useState("")
+  const [apiKey, setApiKey] = React.useState("")
+  const [isConnecting, setIsConnecting] = React.useState(false)
+  const [formError, setFormError] = React.useState<string | null>(null)
+  const [isDarkMode, setIsDarkMode] = React.useState(false)
+  const [activeTab, setActiveTab] = React.useState<"connect" | "stats">("connect")
+
+  const applyTheme = React.useCallback((mode: Theme) => {
+    if (typeof document === "undefined") return
+    const root = document.documentElement
+    root.classList.toggle("dark", mode === "dark")
+    localStorage.setItem(STORAGE_KEY_THEME, mode)
+    setIsDarkMode(mode === "dark")
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent<Theme>(THEME_EVENT, { detail: mode }))
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const storedUrl = localStorage.getItem(STORAGE_KEY_URL)
+    const storedKey = localStorage.getItem(STORAGE_KEY_KEY)
+    if (storedUrl) setApiUrl(storedUrl)
+    if (storedKey) setApiKey(storedKey)
+
+    const storedTheme = localStorage.getItem(STORAGE_KEY_THEME) as Theme | null
+    const prefersDark =
+      storedTheme ??
+      (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light")
+    applyTheme(prefersDark)
+  }, [applyTheme])
+
+  React.useEffect(() => {
+    if (graphData) {
+      setActiveTab("stats")
+    }
+  }, [graphData])
+
+  const toggleTheme = () => {
+    applyTheme(isDarkMode ? "light" : "dark")
+  }
+
+  const handleConnect = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setFormError(null)
+    setIsConnecting(true)
+
+    try {
+      const url = new URL(apiUrl)
+      if (!url.protocol.startsWith("http")) {
+        throw new Error("URL must use HTTP or HTTPS protocol")
+      }
+
+      const fetcher = createFetcher(apiUrl, apiKey)
+      const isConnected = await fetcher.testConnection()
+
+      if (!isConnected) {
+        throw new Error("Failed to connect to Craft API")
+      }
+
+      localStorage.setItem(STORAGE_KEY_URL, apiUrl)
+      localStorage.setItem(STORAGE_KEY_KEY, apiKey)
+      onReload()
+    } catch (err) {
+      if (err instanceof TypeError) {
+        setFormError("Invalid URL format")
+      } else if (err instanceof Error) {
+        setFormError(err.message)
+      } else {
+        setFormError("Failed to connect to Craft API")
+      }
+    } finally {
+      setIsConnecting(false)
+    }
+  }
 
   return (
-    <div className="fixed left-4 top-4 z-40 space-y-2">
+    <div className="fixed left-4 top-4 z-40 w-[320px] space-y-2">
       <Card className="p-2">
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon" onClick={onHome} title="Back to setup">
-            <IconHome className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDarkMode ? (
+              <IconSun className="h-4 w-4" />
+            ) : (
+              <IconMoon className="h-4 w-4" />
+            )}
           </Button>
           <Button variant="ghost" size="icon" onClick={onReload} title="Reload graph">
             <IconRefresh className="h-4 w-4" />
@@ -29,39 +133,121 @@ export function GraphControls({ graphData, onReload, onHome }: GraphControlsProp
         </div>
       </Card>
 
-      {stats && (
-        <Card className="p-4">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Documents:</span>
-              <span className="font-medium">{stats.totalDocuments}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Nodes:</span>
-              <span className="font-medium">{stats.totalNodes}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Links:</span>
-              <span className="font-medium">{stats.totalLinks}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Orphans:</span>
-              <span className="font-medium">{stats.orphanNodes}</span>
-            </div>
-            {stats.mostConnectedNode && (
-              <div className="border-t pt-2">
-                <div className="text-xs text-muted-foreground">Most connected:</div>
-                <div className="truncate text-xs font-medium" title={stats.mostConnectedNode.title}>
-                  {stats.mostConnectedNode.title}
+      <Card className="p-4">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "connect" | "stats")}>
+          <TabsList className="grid grid-cols-2 rounded-3xl bg-muted/40 p-1">
+            <TabsTrigger value="connect">Connect</TabsTrigger>
+            <TabsTrigger value="stats" disabled={!stats}>
+              Stats
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="connect">
+            <form onSubmit={handleConnect} className="space-y-4 pt-2">
+              <Field>
+                <FieldLabel htmlFor="graph-api-url">API URL</FieldLabel>
+                <Input
+                  id="graph-api-url"
+                  type="url"
+                  placeholder="https://connect.craft.do/links/ID/api/v1"
+                  value={apiUrl}
+                  onChange={(event) => setApiUrl(event.target.value)}
+                  required
+                  disabled={isConnecting}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="graph-api-key">API Key</FieldLabel>
+                <Input
+                  id="graph-api-key"
+                  type="password"
+                  placeholder="Your Craft API key"
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  required
+                  disabled={isConnecting}
+                />
+              </Field>
+
+              {formError ? (
+                <p className="text-sm text-destructive">{formError}</p>
+              ) : (
+                error && !isConnecting && (
+                  <p className="text-sm text-destructive">{error}</p>
+                )
+              )}
+
+              {isLoading && (
+                <div className="space-y-2 rounded-2xl bg-muted/40 p-3 text-xs">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="font-medium text-foreground">Loading graph</span>
+                    {progress.total > 0 && (
+                      <span>
+                        {progress.current} / {progress.total}
+                      </span>
+                    )}
+                  </div>
+                  {progress.message && (
+                    <div className="text-muted-foreground">{progress.message}</div>
+                  )}
+                  {progress.total > 0 && (
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-300"
+                        style={{
+                          width: `${Math.min(100, (progress.current / progress.total) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {stats.mostConnectedNode.connections} connections
+              )}
+
+              <Button type="submit" disabled={isConnecting} className="w-full">
+                {isConnecting ? "Connecting..." : "Save connection"}
+              </Button>
+            </form>
+          </TabsContent>
+
+          <TabsContent value="stats">
+            {stats ? (
+              <div className="space-y-2 pt-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Documents:</span>
+                  <span className="font-medium">{stats.totalDocuments}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Nodes:</span>
+                  <span className="font-medium">{stats.totalNodes}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Links:</span>
+                  <span className="font-medium">{stats.totalLinks}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Orphans:</span>
+                  <span className="font-medium">{stats.orphanNodes}</span>
+                </div>
+                {stats.mostConnectedNode && (
+                  <div className="border-t pt-2">
+                    <div className="text-xs text-muted-foreground">Most connected:</div>
+                    <div className="truncate text-xs font-medium" title={stats.mostConnectedNode.title}>
+                      {stats.mostConnectedNode.title}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {stats.mostConnectedNode.connections} connections
+                    </div>
+                  </div>
+                )}
               </div>
+            ) : (
+              <p className="pt-2 text-sm text-muted-foreground">
+                Stats will appear once the graph finishes loading.
+              </p>
             )}
-          </div>
-        </Card>
-      )}
+          </TabsContent>
+        </Tabs>
+      </Card>
     </div>
   )
 }
