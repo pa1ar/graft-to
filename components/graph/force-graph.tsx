@@ -63,6 +63,7 @@ export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode,
   const [muteOpacity, setMuteOpacity] = React.useState<number>(1)
   const animationFrameRef = React.useRef<number | null>(null)
   const currentOpacityRef = React.useRef<number>(1)
+  const zoomUpdateFrameRef = React.useRef<number | null>(null)
   
   // Maintain stable graph data - single source of truth
   const stableDataRef = React.useRef<InternalGraphData>({ nodes: [], links: [] })
@@ -219,6 +220,15 @@ export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode,
     }
   }, [hoveredNode, selectedNode])
 
+  // Cleanup zoom update frame on unmount
+  React.useEffect(() => {
+    return () => {
+      if (zoomUpdateFrameRef.current !== null) {
+        cancelAnimationFrame(zoomUpdateFrameRef.current)
+      }
+    }
+  }, [])
+
   const colors = theme === "dark" ? DARK_THEME : LIGHT_THEME
 
   // Helper to convert hex to rgba
@@ -345,7 +355,16 @@ export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode,
       onNodeHover={(node: any) => setHoveredNode(node)}
       onNodeClick={(node: any) => onNodeClick?.(node as GraphNode)}
       onBackgroundClick={() => onBackgroundClick?.()}
-      onZoom={(transform: any) => setZoomLevel(transform.k)}
+      onZoom={(transform: any) => {
+        // Defer state update to avoid updating during render
+        if (zoomUpdateFrameRef.current !== null) {
+          cancelAnimationFrame(zoomUpdateFrameRef.current)
+        }
+        zoomUpdateFrameRef.current = requestAnimationFrame(() => {
+          setZoomLevel(transform.k)
+          zoomUpdateFrameRef.current = null
+        })
+      }}
       nodeCanvasObject={drawNodeLabel}
       nodeCanvasObjectMode={() => 'after'}
       backgroundColor={colors.background}
