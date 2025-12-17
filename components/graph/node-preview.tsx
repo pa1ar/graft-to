@@ -13,10 +13,46 @@ interface NodePreviewProps {
   onClose: () => void
 }
 
+function getSpaceId(): string | null {
+  // Try to get spaceId from localStorage
+  const storedSpaceId = localStorage.getItem("craft_space_id")
+  if (storedSpaceId) return storedSpaceId
+  
+  // Try to extract from API URL if it contains spaceId
+  const apiUrl = localStorage.getItem("craft_api_url") || ""
+  if (apiUrl) {
+    // Check if spaceId is in the URL path (e.g., /spaces/{spaceId}/...)
+    const spaceIdMatch = apiUrl.match(/\/spaces\/([a-f0-9-]+)/i)
+    if (spaceIdMatch) return spaceIdMatch[1]
+    
+    // Check if spaceId is a query parameter
+    try {
+      const url = new URL(apiUrl)
+      const spaceIdParam = url.searchParams.get("spaceId")
+      if (spaceIdParam) return spaceIdParam
+    } catch {
+      // Invalid URL, ignore
+    }
+  }
+  
+  return null
+}
+
 export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
   if (!node) return null
 
-  const craftUrl = `craft://open?blockId=${node.id}`
+  // Use clickableLink from node if available, otherwise construct it
+  let craftUrl: string;
+  if (node.clickableLink) {
+    // Use the API-provided clickableLink directly
+    craftUrl = node.clickableLink;
+  } else {
+    // Fallback: construct the URL with blockId and spaceId
+    const spaceId = getSpaceId();
+    craftUrl = spaceId 
+      ? `craftdocs://open?blockId=${node.id}&spaceId=${spaceId}`
+      : `craftdocs://open?blockId=${node.id}`;
+  }
   
   const getNodeTitle = (nodeId: string): string => {
     const foundNode = graphData?.nodes.find(n => n.id === nodeId)

@@ -67,7 +67,7 @@ function buildBlockToDocumentMap(
 }
 
 export function buildGraphData(
-  documents: Array<{ id: string; title: string }>,
+  documents: Array<{ id: string; title: string; clickableLink?: string }>,
   blocksMap: Map<string, CraftBlock[]>
 ): GraphData {
   const nodesMap = new Map<string, GraphNode>();
@@ -82,6 +82,7 @@ export function buildGraphData(
         title: doc.title || 'Untitled',
         type: 'document',
         linkCount: 0,
+        clickableLink: doc.clickableLink,
       });
     }
     

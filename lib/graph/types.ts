@@ -11,6 +11,7 @@ export interface GraphNode {
   color?: string;
   linksTo?: string[];
   linkedFrom?: string[];
+  clickableLink?: string;
 }
 
 export interface GraphLink {
@@ -37,6 +38,7 @@ export interface CraftDocument {
   deleted?: boolean;
   lastModifiedAt?: string;
   createdAt?: string;
+  clickableLink?: string;
 }
 
 export interface CraftAPIConfig {

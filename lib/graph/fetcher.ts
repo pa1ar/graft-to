@@ -69,15 +69,22 @@ export class CraftGraphFetcher {
     return response.json();
   }
 
-  async fetchDocuments(fetchMetadata = false): Promise<CraftDocument[]> {
+  async fetchDocuments(fetchMetadata = true): Promise<CraftDocument[]> {
     // First, get all folders to know where documents can be
     const foldersResponse = await this.fetchAPI<any>('/folders');
     console.log('[DEBUG] Folders response:', JSON.stringify(foldersResponse, null, 2));
+    
+    // Extract and store spaceId if present in the response
+    if (foldersResponse.spaceId && typeof window !== 'undefined') {
+      localStorage.setItem('craft_space_id', foldersResponse.spaceId);
+      console.log('[DEBUG] Extracted spaceId from folders response:', foldersResponse.spaceId);
+    }
     
     const folders = foldersResponse.items || foldersResponse.folders || [];
     console.log(`[DEBUG] Found ${folders.length} top-level folders`);
     
     const allDocuments: CraftDocument[] = [];
+    let spaceIdExtracted = false;
     
     // Built-in locations use 'location' parameter
     const builtInLocations = ['unsorted', 'daily_notes', 'templates'];
@@ -120,6 +127,17 @@ export class CraftGraphFetcher {
         if (Array.isArray(docs)) {
           console.log(`[DEBUG] Location ${locationId}: ${docs.length} documents`);
           allDocuments.push(...docs);
+          
+          // Extract spaceId from the first document's clickableLink
+          if (!spaceIdExtracted && docs.length > 0 && docs[0].clickableLink && typeof window !== 'undefined') {
+            const match = docs[0].clickableLink.match(/spaceId=([^&]+)/);
+            if (match) {
+              const spaceId = match[1];
+              localStorage.setItem('craft_space_id', spaceId);
+              console.log('[DEBUG] Extracted spaceId from clickableLink:', spaceId);
+              spaceIdExtracted = true;
+            }
+          }
         }
       } catch (error) {
         console.warn(`[DEBUG] Failed to fetch from location ${locationId}:`, error);
@@ -144,6 +162,17 @@ export class CraftGraphFetcher {
         if (Array.isArray(docs)) {
           console.log(`[DEBUG] Folder ${folderId}: ${docs.length} documents`);
           allDocuments.push(...docs);
+          
+          // Extract spaceId from the first document's clickableLink
+          if (!spaceIdExtracted && docs.length > 0 && docs[0].clickableLink && typeof window !== 'undefined') {
+            const match = docs[0].clickableLink.match(/spaceId=([^&]+)/);
+            if (match) {
+              const spaceId = match[1];
+              localStorage.setItem('craft_space_id', spaceId);
+              console.log('[DEBUG] Extracted spaceId from clickableLink:', spaceId);
+              spaceIdExtracted = true;
+            }
+          }
         }
       } catch (error) {
         console.warn(`[DEBUG] Failed to fetch from folder ${folderId}:`, error);
@@ -152,6 +181,116 @@ export class CraftGraphFetcher {
     
     console.log(`[DEBUG] Fetched ${allDocuments.length} total documents from all locations`);
     return allDocuments;
+  }
+
+  async fetchSpaceId(): Promise<string | null> {
+    // Try to get from localStorage first
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('craft_space_id');
+      if (stored) return stored;
+    }
+
+    try {
+      // PRIMARY METHOD: Try fetching a document with metadata to get clickableLink
+      // This is the most reliable way to get spaceId
+      try {
+        const documentsResponse = await this.fetchAPI<any>('/documents', { 
+          location: 'unsorted',
+          fetchMetadata: 'true'
+        });
+        
+        if (documentsResponse.items && Array.isArray(documentsResponse.items) && documentsResponse.items.length > 0) {
+          const firstDoc = documentsResponse.items[0];
+          
+          // Extract spaceId from clickableLink
+          if (firstDoc.clickableLink) {
+            const match = firstDoc.clickableLink.match(/spaceId=([^&]+)/);
+            if (match) {
+              const spaceId = match[1];
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('craft_space_id', spaceId);
+              }
+              console.log('[SpaceId] Extracted from clickableLink:', spaceId);
+              return spaceId;
+            }
+          }
+          
+          // Fallback: check if spaceId is directly in the document object
+          if (firstDoc.spaceId) {
+            const spaceId = String(firstDoc.spaceId);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('craft_space_id', spaceId);
+            }
+            return spaceId;
+          }
+        }
+      } catch (err) {
+        console.warn('[SpaceId] Failed to fetch documents:', err);
+      }
+
+      // Check folders endpoint for spaceId
+      const foldersResponse = await this.fetchAPI<any>('/folders');
+      
+      // Check various possible locations for spaceId in the response
+      if (foldersResponse.spaceId) {
+        const spaceId = String(foldersResponse.spaceId);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('craft_space_id', spaceId);
+        }
+        return spaceId;
+      }
+
+      // Check if spaceId is in the response structure
+      if (foldersResponse.space?.id) {
+        const spaceId = String(foldersResponse.space.id);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('craft_space_id', spaceId);
+        }
+        return spaceId;
+      }
+
+      // Check if spaceId is in items (some APIs nest it)
+      if (foldersResponse.items && Array.isArray(foldersResponse.items) && foldersResponse.items.length > 0) {
+        const firstItem = foldersResponse.items[0];
+        if (firstItem.spaceId) {
+          const spaceId = String(firstItem.spaceId);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('craft_space_id', spaceId);
+          }
+          return spaceId;
+        }
+      }
+
+      // Try to extract from API URL
+      const apiUrl = this.config.baseUrl;
+      // Check if spaceId is in URL path
+      const spaceIdMatch = apiUrl.match(/\/spaces\/([a-f0-9-]+)/i);
+      if (spaceIdMatch) {
+        const spaceId = spaceIdMatch[1];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('craft_space_id', spaceId);
+        }
+        return spaceId;
+      }
+
+      // Check if spaceId is a query parameter
+      try {
+        const url = new URL(apiUrl);
+        const spaceIdParam = url.searchParams.get('spaceId');
+        if (spaceIdParam) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('craft_space_id', spaceIdParam);
+          }
+          return spaceIdParam;
+        }
+      } catch {
+        // Invalid URL, ignore
+      }
+    } catch (error) {
+      console.warn('[SpaceId] Failed to fetch spaceId:', error);
+    }
+
+    return null;
   }
 
   async fetchBlocks(documentId: string, maxDepth = -1): Promise<CraftBlock[]> {
@@ -246,6 +385,7 @@ export class CraftGraphFetcher {
         title: doc.title || 'Untitled',
         type: 'document',
         linkCount: 0,
+        clickableLink: doc.clickableLink,
       });
       blockToDocMap.set(doc.id, doc.id);
     }
@@ -302,6 +442,7 @@ export class CraftGraphFetcher {
                       title: targetDoc?.title || `Unknown ${targetDocId}`,
                       type: targetDoc ? 'document' : 'block',
                       linkCount: 0,
+                      clickableLink: targetDoc?.clickableLink,
                     };
                     nodesMap.set(targetDocId, newNode);
                     newNodes.push(newNode);
@@ -542,12 +683,14 @@ export class CraftGraphFetcher {
               title: doc.title || 'Untitled',
               type: 'document',
               linkCount: 0,
+              clickableLink: doc.clickableLink,
             };
             nodesMap.set(docId, newNode);
             callbacks?.onNodesReady?.([newNode]);
           } else {
             const existingNode = nodesMap.get(docId)!;
             existingNode.title = doc.title || 'Untitled';
+            existingNode.clickableLink = doc.clickableLink;
           }
           
           const newLinks: GraphLink[] = [];
@@ -568,6 +711,7 @@ export class CraftGraphFetcher {
                     title: targetDoc?.title || `Unknown ${targetDocId}`,
                     type: targetDoc ? 'document' : 'block',
                     linkCount: 0,
+                    clickableLink: targetDoc?.clickableLink,
                   };
                   nodesMap.set(targetDocId, newNode);
                   newNodes.push(newNode);
