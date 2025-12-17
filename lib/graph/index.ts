@@ -20,4 +20,5 @@
 export * from './types';
 export * from './parser';
 export * from './fetcher';
+export * from './cache';
 

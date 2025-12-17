@@ -11,7 +11,7 @@ import type { GraphData, GraphNode } from "@/lib/graph"
 const EMPTY_GRAPH: GraphData = { nodes: [], links: [] }
 
 export default function GraphPage() {
-  const { graphData, isLoading, error, progress, reload } = useCraftGraph()
+  const { graphData, isLoading, isRefreshing, error, progress, reload, refresh } = useCraftGraph()
   const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(null)
   const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
 
@@ -33,9 +33,11 @@ export default function GraphPage() {
       <GraphControls
         graphData={graphData}
         isLoading={isLoading}
+        isRefreshing={isRefreshing}
         progress={progress}
         error={error}
         onReload={reload}
+        onRefresh={refresh}
       />
       
       <ForceGraph

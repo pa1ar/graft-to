@@ -39,6 +39,33 @@ export function extractLinksFromBlock(block: CraftBlock): string[] {
   return links;
 }
 
+function buildBlockToDocumentMap(
+  documents: Array<{ id: string; title: string }>,
+  blocksMap: Map<string, CraftBlock[]>
+): Map<string, string> {
+  const blockToDoc = new Map<string, string>();
+  
+  function addBlocksRecursively(docId: string, blocks: CraftBlock[]) {
+    for (const block of blocks) {
+      blockToDoc.set(block.id, docId);
+      if (block.content) {
+        addBlocksRecursively(docId, block.content);
+      }
+    }
+  }
+  
+  for (const doc of documents) {
+    blockToDoc.set(doc.id, doc.id);
+    
+    const blocks = blocksMap.get(doc.id);
+    if (blocks) {
+      addBlocksRecursively(doc.id, blocks);
+    }
+  }
+  
+  return blockToDoc;
+}
+
 export function buildGraphData(
   documents: Array<{ id: string; title: string }>,
   blocksMap: Map<string, CraftBlock[]>
@@ -46,7 +73,7 @@ export function buildGraphData(
   const nodesMap = new Map<string, GraphNode>();
   const linksMap = new Map<string, Set<string>>();
   
-  console.log('Building graph with', documents.length, 'documents');
+  const blockToDoc = buildBlockToDocumentMap(documents, blocksMap);
   
   for (const doc of documents) {
     if (!nodesMap.has(doc.id)) {
@@ -65,27 +92,20 @@ export function buildGraphData(
       const links = extractLinksFromBlock(block);
       
       if (links.length > 0) {
-        console.log(`Document "${doc.title}" (${doc.id}) has links:`, links);
-        
         if (!linksMap.has(doc.id)) {
           linksMap.set(doc.id, new Set());
         }
         
         for (const targetId of links) {
-          linksMap.get(doc.id)!.add(targetId);
+          const targetDocId = blockToDoc.get(targetId) || targetId;
           
-          // Check if target is a document ID
-          const targetDoc = documents.find(d => d.id === targetId);
-          if (targetDoc) {
-            console.log(`  -> Links to document "${targetDoc.title}"`);
-          } else {
-            console.log(`  -> Links to unknown block ${targetId}`);
-          }
+          linksMap.get(doc.id)!.add(targetDocId);
           
-          if (!nodesMap.has(targetId)) {
-            nodesMap.set(targetId, {
-              id: targetId,
-              title: targetDoc?.title || `Block ${targetId}`,
+          if (!nodesMap.has(targetDocId)) {
+            const targetDoc = documents.find(d => d.id === targetDocId);
+            nodesMap.set(targetDocId, {
+              id: targetDocId,
+              title: targetDoc?.title || `Unknown ${targetDocId}`,
               type: targetDoc ? 'document' : 'block',
               linkCount: 0,
             });

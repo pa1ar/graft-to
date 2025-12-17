@@ -35,6 +35,8 @@ export interface CraftDocument {
   id: string;
   title: string;
   deleted?: boolean;
+  lastModifiedAt?: string;
+  createdAt?: string;
 }
 
 export interface CraftAPIConfig {
@@ -48,6 +50,19 @@ export interface GraphBuildOptions {
   onProgress?: (current: number, total: number, message: string) => void;
 }
 
+export interface GraphStreamCallbacks {
+  onNodesReady?: (nodes: GraphNode[]) => void;
+  onLinksDiscovered?: (links: GraphLink[], newNodes?: GraphNode[]) => void;
+  onProgress?: (current: number, total: number, message: string) => void;
+  onComplete?: (graphData: GraphData) => void;
+}
+
+export interface GraphBuildStreamingOptions {
+  maxDepth?: number;
+  excludeDeleted?: boolean;
+  callbacks?: GraphStreamCallbacks;
+}
+
 export interface GraphStats {
   totalDocuments: number;
   totalNodes: number;
@@ -58,5 +73,29 @@ export interface GraphStats {
     title: string;
     connections: number;
   } | null;
+}
+
+export interface DocumentMetadata {
+  id: string;
+  title: string;
+  lastModifiedAt?: string;
+  deleted?: boolean;
+}
+
+export interface GraphCache {
+  version: number;
+  timestamp: number;
+  apiUrl: string;
+  documentCount: number;
+  documentMetadata: DocumentMetadata[];
+  graphData: GraphData;
+}
+
+export interface GraphUpdateResult {
+  hasChanges: boolean;
+  added: string[];
+  modified: string[];
+  deleted: string[];
+  graphData: GraphData;
 }
 
