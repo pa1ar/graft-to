@@ -20,7 +20,7 @@ type ThemeColors = {
 const LIGHT_THEME: ThemeColors = {
   background: "#ffffff",
   link: "#cbd5e1",
-  linkHighlight: "#fbbf24",
+  linkHighlight: "#e2e8f0",
   node: "#9ca3af",
   nodeHighlight: "#fbbf24",
 }
@@ -28,7 +28,7 @@ const LIGHT_THEME: ThemeColors = {
 const DARK_THEME: ThemeColors = {
   background: "#020617",
   link: "#475569",
-  linkHighlight: "#f59e0b",
+  linkHighlight: "#64748b",
   node: "#6b7280",
   nodeHighlight: "#f59e0b",
 }
@@ -58,11 +58,15 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
   const [theme, setTheme] = React.useState<ThemeMode>(() => getInitialTheme())
   const [hoveredNode, setHoveredNode] = React.useState<GraphNode | null>(null)
   const [zoomLevel, setZoomLevel] = React.useState<number>(1)
+  const [muteOpacity, setMuteOpacity] = React.useState<number>(1)
+  const animationFrameRef = React.useRef<number | null>(null)
+  const currentOpacityRef = React.useRef<number>(1)
   
   // Maintain stable graph data - single source of truth
   const stableDataRef = React.useRef<InternalGraphData>({ nodes: [], links: [] })
   const nodeMapRef = React.useRef<Map<string, any>>(new Map())
   const linkSetRef = React.useRef<Set<string>>(new Set())
+  const [graphDataState, setGraphDataState] = React.useState<InternalGraphData>({ nodes: [], links: [] })
   
   // Update stable data incrementally without recreating the object
   React.useEffect(() => {
@@ -99,6 +103,9 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
       return true
     })
     
+    // Track incoming links
+    const incomingLinkKeys = new Set(data.links.map(l => `${l.source}-${l.target}`))
+    
     // Add new links incrementally
     for (const link of data.links) {
       const linkKey = `${link.source}-${link.target}`
@@ -111,17 +118,25 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
       }
     }
     
-    // Clean up links that reference removed nodes
+    // Clean up links that reference removed nodes or are no longer in data
     stableData.links = stableData.links.filter(link => {
       const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source
       const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target
       const linkKey = `${sourceId}-${targetId}`
       
-      if (!currentNodeMap.has(sourceId) || !currentNodeMap.has(targetId)) {
+      if (!currentNodeMap.has(sourceId) || !currentNodeMap.has(targetId) || !incomingLinkKeys.has(linkKey)) {
         currentLinkSet.delete(linkKey)
         return false
       }
       return true
+    })
+    
+    // Force re-render by creating a new object reference
+    // react-force-graph needs a new reference to detect changes and re-render
+    // We create new arrays but keep the same node objects to preserve positions (x, y, vx, vy)
+    setGraphDataState({
+      nodes: [...stableData.nodes],
+      links: [...stableData.links],
     })
   }, [data])
 
@@ -156,11 +171,78 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
     }
   }, [])
 
+  // Smooth opacity transition when hover state changes
+  React.useEffect(() => {
+    // Set target opacity: 0.5 when hovering, 1.0 when not hovering
+    const targetOpacity = hoveredNode ? 0.5 : 1.0
+
+    // Easing function for smooth transition (ease-in-out)
+    const easeInOut = (t: number): number => {
+      return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+    }
+
+    const startTime = performance.now()
+    const duration = 300 // 300ms transition
+    const startOpacity = currentOpacityRef.current
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const easedProgress = easeInOut(progress)
+      
+      const newOpacity = startOpacity + (targetOpacity - startOpacity) * easedProgress
+      currentOpacityRef.current = newOpacity
+      setMuteOpacity(newOpacity)
+
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(animate)
+      } else {
+        currentOpacityRef.current = targetOpacity
+        setMuteOpacity(targetOpacity)
+      }
+    }
+
+    // Cancel any existing animation
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current)
+    }
+
+    animationFrameRef.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [hoveredNode])
+
   const colors = theme === "dark" ? DARK_THEME : LIGHT_THEME
+
+  // Helper to convert hex to rgba
+  const hexToRgba = (hex: string, alpha: number): string => {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  }
+
+  // Check if a node is connected to the hovered node
+  const isNodeConnected = (nodeId: string): boolean => {
+    if (!hoveredNode) return true
+    if (nodeId === hoveredNode.id) return true
+    
+    // Check if node is connected via any link
+    return graphDataState.links.some((link: any) => {
+      const sourceId = typeof link.source === 'object' ? link.source.id : link.source
+      const targetId = typeof link.target === 'object' ? link.target.id : link.target
+      return (sourceId === hoveredNode.id && targetId === nodeId) ||
+             (targetId === hoveredNode.id && sourceId === nodeId)
+    })
+  }
 
   // Check if a link is connected to the hovered node
   const isLinkHighlighted = (link: any) => {
-    if (!hoveredNode) return false
+    if (!hoveredNode) return true
     const sourceId = typeof link.source === 'object' ? link.source.id : link.source
     const targetId = typeof link.target === 'object' ? link.target.id : link.target
     return sourceId === hoveredNode.id || targetId === hoveredNode.id
@@ -168,14 +250,41 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
 
   // Node color function
   const getNodeColor = (node: any) => {
-    return hoveredNode && node.id === hoveredNode.id
-      ? colors.nodeHighlight
-      : colors.node
+    if (!hoveredNode) return colors.node
+    
+    if (node.id === hoveredNode.id) {
+      return colors.nodeHighlight
+    }
+    
+    // Mute nodes that aren't connected to the hovered node
+    if (!isNodeConnected(node.id)) {
+      return hexToRgba(colors.node, muteOpacity)
+    }
+    
+    return colors.node
   }
 
   // Link color function
   const getLinkColor = (link: any) => {
-    return isLinkHighlighted(link) ? colors.linkHighlight : colors.link
+    if (!hoveredNode) return colors.link
+    
+    if (isLinkHighlighted(link)) {
+      return colors.linkHighlight
+    }
+    
+    // Mute links that aren't connected to the hovered node
+    return hexToRgba(colors.link, muteOpacity)
+  }
+
+  // Link width function
+  const getLinkWidth = (link: any) => {
+    if (!hoveredNode) return 1
+    
+    if (isLinkHighlighted(link)) {
+      return 2
+    }
+    
+    return 1
   }
 
   // Draw labels based on zoom level
@@ -185,7 +294,12 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
     if (globalScale < minZoomForLabels) return
 
     // Calculate opacity based on zoom level for smooth fade-in
-    const opacity = Math.min(1, (globalScale - minZoomForLabels) / 0.5)
+    let opacity = Math.min(1, (globalScale - minZoomForLabels) / 0.5)
+    
+    // Mute label opacity for nodes not connected to hovered node
+    if (hoveredNode && !isNodeConnected(node.id)) {
+      opacity *= muteOpacity
+    }
     
     const label = node.title
     const fontSize = 12 / globalScale
@@ -201,7 +315,7 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
   return (
     <ForceGraph2D
       ref={graphRef}
-      graphData={stableDataRef.current}
+      graphData={graphDataState}
       width={width}
       height={height}
       nodeId="id"
@@ -210,9 +324,9 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
       nodeLabel={(node: any) => node.title}
       nodeColor={getNodeColor}
       nodeRelSize={4}
-      nodeVal={(node: any) => Math.max(2, node.linkCount * 0.8)}
+      nodeVal={2}
       linkColor={getLinkColor}
-      linkWidth={(link: any) => isLinkHighlighted(link) ? 3 : 1.5}
+      linkWidth={getLinkWidth}
       linkDirectionalParticles={0}
       onNodeHover={(node: any) => setHoveredNode(node)}
       onNodeClick={(node: any) => onNodeClick?.(node as GraphNode)}

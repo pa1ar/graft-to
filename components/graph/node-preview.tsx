@@ -24,9 +24,9 @@ export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
   }
 
   return (
-    <div className="fixed right-0 top-0 z-50 h-full w-96 overflow-auto border-l bg-background shadow-lg">
-      <Card className="h-full rounded-none border-0">
-        <CardHeader className="border-b">
+    <div className="fixed right-4 top-4 z-50 w-96">
+      <Card className="flex max-h-[calc(100vh-2rem)] flex-col">
+        <CardHeader className="shrink-0 border-b">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <CardTitle className="text-lg">{node.title}</CardTitle>
@@ -46,8 +46,18 @@ export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
               <IconX className="h-4 w-4" />
             </Button>
           </div>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => window.open(craftUrl, "_blank")}
+            >
+              <IconExternalLink className="mr-2 h-4 w-4" />
+              Open in Craft
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="node-preview-content flex-1 overflow-y-auto px-6">
           <div className="space-y-4">
             <div>
               <h3 className="mb-2 text-sm font-medium">Document ID</h3>
@@ -81,15 +91,6 @@ export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
                 </div>
               </div>
             )}
-            
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => window.open(craftUrl, "_blank")}
-            >
-              <IconExternalLink className="mr-2 h-4 w-4" />
-              Open in Craft
-            </Button>
           </div>
         </CardContent>
       </Card>
