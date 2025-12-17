@@ -15,7 +15,7 @@ import type {
   DocumentMetadata,
   GraphUpdateResult,
 } from './types';
-import { buildGraphData, calculateNodeColor, extractLinksFromBlock } from './parser';
+import { buildGraphData, calculateNodeColor, extractLinksFromBlock, rebuildNodeRelationships } from './parser';
 
 export class CraftAPIError extends Error {
   constructor(
@@ -348,11 +348,14 @@ export class CraftGraphFetcher {
 
     callbacks?.onProgress?.(documents.length, documents.length, 'Finalizing graph...');
 
-    const graphData = buildGraphData(documents, blocksMap);
+    let graphData = buildGraphData(documents, blocksMap);
 
     for (const node of graphData.nodes) {
       node.color = calculateNodeColor(node.linkCount);
     }
+
+    // Rebuild node relationships to ensure linksTo and linkedFrom are up to date
+    graphData = rebuildNodeRelationships(graphData);
 
     callbacks?.onComplete?.(graphData);
 
@@ -603,8 +606,10 @@ export class CraftGraphFetcher {
     
     const linkCounts = new Map<string, number>();
     for (const link of linksArray) {
-      linkCounts.set(link.source, (linkCounts.get(link.source) || 0) + 1);
-      linkCounts.set(link.target, (linkCounts.get(link.target) || 0) + 1);
+      const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
+      const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+      linkCounts.set(sourceId, (linkCounts.get(sourceId) || 0) + 1);
+      linkCounts.set(targetId, (linkCounts.get(targetId) || 0) + 1);
     }
     
     const nodesArray = Array.from(nodesMap.values()).map(node => ({
@@ -613,10 +618,13 @@ export class CraftGraphFetcher {
       color: calculateNodeColor(linkCounts.get(node.id) || 0),
     }));
     
-    const finalGraphData: GraphData = {
+    let finalGraphData: GraphData = {
       nodes: nodesArray,
       links: linksArray,
     };
+    
+    // Rebuild node relationships to ensure linksTo and linkedFrom are up to date
+    finalGraphData = rebuildNodeRelationships(finalGraphData);
     
     callbacks?.onComplete?.(finalGraphData);
     

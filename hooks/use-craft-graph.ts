@@ -10,7 +10,8 @@ import {
   getCachedGraph, 
   getCachedGraphWithMetadata,
   setCachedGraph,
-  calculateNodeColor
+  calculateNodeColor,
+  rebuildNodeRelationships
 } from "@/lib/graph"
 
 const STORAGE_KEY_URL = "craft_api_url"
@@ -117,26 +118,31 @@ export function useCraftGraph() {
               
               const linkCounts = new Map<string, number>()
               for (const link of updatedLinks) {
-                linkCounts.set(link.source, (linkCounts.get(link.source) || 0) + 1)
-                linkCounts.set(link.target, (linkCounts.get(link.target) || 0) + 1)
+                const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source
+                const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target
+                linkCounts.set(sourceId, (linkCounts.get(sourceId) || 0) + 1)
+                linkCounts.set(targetId, (linkCounts.get(targetId) || 0) + 1)
               }
               
-              const finalNodes = updatedNodes.map(node => {
-                const linkCount = linkCounts.get(node.id) || 0;
-                return {
-                  ...node,
-                  linkCount,
-                  color: calculateNodeColor(linkCount),
-                };
-              })
-              
-              return {
-                ...prev,
-                graphData: {
+                const finalNodes = updatedNodes.map(node => {
+                  const linkCount = linkCounts.get(node.id) || 0;
+                  return {
+                    ...node,
+                    linkCount,
+                    color: calculateNodeColor(linkCount),
+                  };
+                })
+                
+                // Rebuild node relationships to ensure linksTo and linkedFrom are up to date
+                const graphDataWithRelationships = rebuildNodeRelationships({
                   nodes: finalNodes,
                   links: updatedLinks,
-                },
-              }
+                });
+                
+                return {
+                  ...prev,
+                  graphData: graphDataWithRelationships,
+                }
             })
           },
           onProgress: (current, total, message) => {
@@ -291,12 +297,15 @@ export function useCraftGraph() {
                   };
                 })
                 
+                // Rebuild node relationships to ensure linksTo and linkedFrom are up to date
+                const graphDataWithRelationships = rebuildNodeRelationships({
+                  nodes: finalNodes,
+                  links: updatedLinks,
+                });
+                
                 return {
                   ...prev,
-                  graphData: {
-                    nodes: finalNodes,
-                    links: updatedLinks,
-                  },
+                  graphData: graphDataWithRelationships,
                 }
               })
             },

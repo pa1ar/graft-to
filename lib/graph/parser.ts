@@ -158,6 +158,40 @@ export function calculateNodeColor(linkCount: number): string {
   return '#f87171';
 }
 
+/**
+ * Rebuilds linksTo and linkedFrom properties on nodes based on the links array.
+ * This should be called whenever links are updated to keep node relationships in sync.
+ */
+export function rebuildNodeRelationships(graphData: GraphData): GraphData {
+  const nodesMap = new Map(graphData.nodes.map(n => [n.id, { ...n, linksTo: [] as string[], linkedFrom: [] as string[] }]));
+  
+  // Build linksTo and linkedFrom from links array
+  for (const link of graphData.links) {
+    const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
+    const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+    
+    const sourceNode = nodesMap.get(sourceId);
+    const targetNode = nodesMap.get(targetId);
+    
+    if (sourceNode && targetNode) {
+      // Add to source's linksTo if not already present
+      if (!sourceNode.linksTo!.includes(targetId)) {
+        sourceNode.linksTo!.push(targetId);
+      }
+      
+      // Add to target's linkedFrom if not already present
+      if (!targetNode.linkedFrom!.includes(sourceId)) {
+        targetNode.linkedFrom!.push(sourceId);
+      }
+    }
+  }
+  
+  return {
+    nodes: Array.from(nodesMap.values()),
+    links: graphData.links,
+  };
+}
+
 export function getGraphStats(graphData: GraphData) {
   const orphanNodes = graphData.nodes.filter(n => n.linkCount === 0).length;
   

@@ -124,3 +124,29 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom scrollbar styling for node preview */
+.node-preview-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+
+.node-preview-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.node-preview-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.node-preview-content::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+
+.node-preview-content::-webkit-scrollbar-thumb:hover {
+  background-color: var(--foreground);
+}
