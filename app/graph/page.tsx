@@ -43,6 +43,8 @@ export default function GraphPage() {
       <ForceGraph
         data={graphData ?? EMPTY_GRAPH}
         onNodeClick={setSelectedNode}
+        onBackgroundClick={() => setSelectedNode(null)}
+        selectedNode={selectedNode}
         width={dimensions.width}
         height={dimensions.height}
       />

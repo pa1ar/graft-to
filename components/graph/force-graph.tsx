@@ -43,6 +43,8 @@ const getInitialTheme = (): ThemeMode => {
 interface ForceGraphProps {
   data: GraphData
   onNodeClick?: (node: GraphNode) => void
+  onBackgroundClick?: () => void
+  selectedNode?: GraphNode | null
   width?: number
   height?: number
 }
@@ -53,7 +55,7 @@ interface InternalGraphData {
   links: GraphLink[]
 }
 
-export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps) {
+export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode, width, height }: ForceGraphProps) {
   const graphRef = React.useRef<any>(null)
   const [theme, setTheme] = React.useState<ThemeMode>(() => getInitialTheme())
   const [hoveredNode, setHoveredNode] = React.useState<GraphNode | null>(null)
@@ -171,10 +173,11 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
     }
   }, [])
 
-  // Smooth opacity transition when hover state changes
+  // Smooth opacity transition when hover or selection state changes
   React.useEffect(() => {
-    // Set target opacity: 0.5 when hovering, 1.0 when not hovering
-    const targetOpacity = hoveredNode ? 0.5 : 1.0
+    // Set target opacity: 0.5 when hovering or selecting, 1.0 when not
+    const activeNode = selectedNode || hoveredNode
+    const targetOpacity = activeNode ? 0.5 : 1.0
 
     // Easing function for smooth transition (ease-in-out)
     const easeInOut = (t: number): number => {
@@ -214,7 +217,7 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [hoveredNode])
+  }, [hoveredNode, selectedNode])
 
   const colors = theme === "dark" ? DARK_THEME : LIGHT_THEME
 
@@ -226,37 +229,45 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
     return `rgba(${r}, ${g}, ${b}, ${alpha})`
   }
 
-  // Check if a node is connected to the hovered node
+  // Get the active node (selected takes precedence over hovered)
+  const getActiveNode = (): GraphNode | null => {
+    return selectedNode || hoveredNode
+  }
+
+  // Check if a node is connected to the active node
   const isNodeConnected = (nodeId: string): boolean => {
-    if (!hoveredNode) return true
-    if (nodeId === hoveredNode.id) return true
+    const activeNode = getActiveNode()
+    if (!activeNode) return true
+    if (nodeId === activeNode.id) return true
     
     // Check if node is connected via any link
     return graphDataState.links.some((link: any) => {
       const sourceId = typeof link.source === 'object' ? link.source.id : link.source
       const targetId = typeof link.target === 'object' ? link.target.id : link.target
-      return (sourceId === hoveredNode.id && targetId === nodeId) ||
-             (targetId === hoveredNode.id && sourceId === nodeId)
+      return (sourceId === activeNode.id && targetId === nodeId) ||
+             (targetId === activeNode.id && sourceId === nodeId)
     })
   }
 
-  // Check if a link is connected to the hovered node
+  // Check if a link is connected to the active node
   const isLinkHighlighted = (link: any) => {
-    if (!hoveredNode) return true
+    const activeNode = getActiveNode()
+    if (!activeNode) return true
     const sourceId = typeof link.source === 'object' ? link.source.id : link.source
     const targetId = typeof link.target === 'object' ? link.target.id : link.target
-    return sourceId === hoveredNode.id || targetId === hoveredNode.id
+    return sourceId === activeNode.id || targetId === activeNode.id
   }
 
   // Node color function
   const getNodeColor = (node: any) => {
-    if (!hoveredNode) return colors.node
+    const activeNode = getActiveNode()
+    if (!activeNode) return colors.node
     
-    if (node.id === hoveredNode.id) {
+    if (node.id === activeNode.id) {
       return colors.nodeHighlight
     }
     
-    // Mute nodes that aren't connected to the hovered node
+    // Mute nodes that aren't connected to the active node
     if (!isNodeConnected(node.id)) {
       return hexToRgba(colors.node, muteOpacity)
     }
@@ -266,19 +277,21 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
 
   // Link color function
   const getLinkColor = (link: any) => {
-    if (!hoveredNode) return colors.link
+    const activeNode = getActiveNode()
+    if (!activeNode) return colors.link
     
     if (isLinkHighlighted(link)) {
       return colors.linkHighlight
     }
     
-    // Mute links that aren't connected to the hovered node
+    // Mute links that aren't connected to the active node
     return hexToRgba(colors.link, muteOpacity)
   }
 
   // Link width function
   const getLinkWidth = (link: any) => {
-    if (!hoveredNode) return 1
+    const activeNode = getActiveNode()
+    if (!activeNode) return 1
     
     if (isLinkHighlighted(link)) {
       return 2
@@ -296,8 +309,9 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
     // Calculate opacity based on zoom level for smooth fade-in
     let opacity = Math.min(1, (globalScale - minZoomForLabels) / 0.5)
     
-    // Mute label opacity for nodes not connected to hovered node
-    if (hoveredNode && !isNodeConnected(node.id)) {
+    // Mute label opacity for nodes not connected to active node
+    const activeNode = getActiveNode()
+    if (activeNode && !isNodeConnected(node.id)) {
       opacity *= muteOpacity
     }
     
@@ -330,6 +344,7 @@ export function ForceGraph({ data, onNodeClick, width, height }: ForceGraphProps
       linkDirectionalParticles={0}
       onNodeHover={(node: any) => setHoveredNode(node)}
       onNodeClick={(node: any) => onNodeClick?.(node as GraphNode)}
+      onBackgroundClick={() => onBackgroundClick?.()}
       onZoom={(transform: any) => setZoomLevel(transform.k)}
       nodeCanvasObject={drawNodeLabel}
       nodeCanvasObjectMode={() => 'after'}
