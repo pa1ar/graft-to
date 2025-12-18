@@ -16,6 +16,8 @@ export default function Page() {
   const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(null)
   const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
   const [is3D, setIs3D] = React.useState(false)
+  const [isOrbiting, setIsOrbiting] = React.useState(false)
+  const [orbitSpeed, setOrbitSpeed] = React.useState(1)
 
   React.useEffect(() => {
     const updateDimensions = () => {
@@ -30,6 +32,13 @@ export default function Page() {
     return () => window.removeEventListener("resize", updateDimensions)
   }, [])
 
+  // Disable orbit when switching to 2D mode
+  React.useEffect(() => {
+    if (!is3D && isOrbiting) {
+      setIsOrbiting(false)
+    }
+  }, [is3D, isOrbiting])
+
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <GraphControls
@@ -42,6 +51,10 @@ export default function Page() {
         onRefresh={refresh}
         is3DMode={is3D}
         onIs3DModeChange={setIs3D}
+        isOrbiting={isOrbiting}
+        onIsOrbitingChange={setIsOrbiting}
+        orbitSpeed={orbitSpeed}
+        onOrbitSpeedChange={setOrbitSpeed}
       />
       
       {is3D ? (
@@ -52,6 +65,8 @@ export default function Page() {
           selectedNode={selectedNode}
           width={dimensions.width}
           height={dimensions.height}
+          isOrbiting={isOrbiting}
+          orbitSpeed={orbitSpeed}
         />
       ) : (
         <ForceGraph

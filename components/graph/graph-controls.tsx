@@ -13,7 +13,8 @@ import {
   IconSearch,
   IconAdjustments,
   IconBox,
-  IconSquare
+  IconSquare,
+  IconRotate360
 } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ import { Card } from "@/components/ui/card"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Slider } from "@/components/ui/slider"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +60,10 @@ interface GraphControlsProps {
   onRefresh?: () => void
   is3DMode?: boolean
   onIs3DModeChange?: (is3D: boolean) => void
+  isOrbiting?: boolean
+  onIsOrbitingChange?: (isOrbiting: boolean) => void
+  orbitSpeed?: number
+  onOrbitSpeedChange?: (speed: number) => void
 }
 
 type PanelType = 'connect' | 'stats' | 'search' | 'customize' | null
@@ -276,11 +282,15 @@ function SearchPanel() {
 interface CustomizePanelProps {
   isDarkMode: boolean
   is3DMode: boolean
+  isOrbiting: boolean
+  orbitSpeed: number
   onThemeChange: (isDark: boolean) => void
   on3DModeChange: (is3D: boolean) => void
+  onOrbitingChange: (isOrbiting: boolean) => void
+  onOrbitSpeedChange: (speed: number) => void
 }
 
-function CustomizePanel({ isDarkMode, is3DMode, onThemeChange, on3DModeChange }: CustomizePanelProps) {
+function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, onThemeChange, on3DModeChange, onOrbitingChange, onOrbitSpeedChange }: CustomizePanelProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -342,11 +352,60 @@ function CustomizePanel({ isDarkMode, is3DMode, onThemeChange, on3DModeChange }:
           </button>
         </div>
       </div>
+      
+      {is3DMode && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Camera</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onOrbitingChange(false)}
+              className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+                !isOrbiting 
+                  ? 'border-primary text-primary' 
+                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+              }`}
+            >
+              <IconSquare className="h-5 w-5" />
+              <span className="text-xs font-medium">Static</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onOrbitingChange(true)}
+              className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+                isOrbiting 
+                  ? 'border-primary text-primary' 
+                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+              }`}
+            >
+              <IconRotate360 className="h-5 w-5" />
+              <span className="text-xs font-medium">Orbit</span>
+            </button>
+          </div>
+          
+          {isOrbiting && (
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Speed</p>
+                <span className="text-xs text-muted-foreground">{orbitSpeed.toFixed(1)}x</span>
+              </div>
+              <Slider
+                value={[orbitSpeed]}
+                onValueChange={(values) => onOrbitSpeedChange(values[0])}
+                min={0.1}
+                max={2}
+                step={0.1}
+                className="w-full"
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, is3DMode = false, onIs3DModeChange }: GraphControlsProps) {
+export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange }: GraphControlsProps) {
   const stats = React.useMemo(() => (graphData ? getGraphStats(graphData) : null), [graphData])
   const [apiUrl, setApiUrl] = React.useState("")
   const [apiKey, setApiKey] = React.useState("")
@@ -397,6 +456,14 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
 
   const handle3DModeChange = (is3D: boolean) => {
     onIs3DModeChange?.(is3D)
+  }
+
+  const handleOrbitingChange = (orbiting: boolean) => {
+    onIsOrbitingChange?.(orbiting)
+  }
+
+  const handleOrbitSpeedChange = (speed: number) => {
+    onOrbitSpeedChange?.(speed)
   }
 
   const handleConnect = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -575,8 +642,12 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
               <CustomizePanel 
                 isDarkMode={isDarkMode}
                 is3DMode={is3DMode}
+                isOrbiting={isOrbiting}
+                orbitSpeed={orbitSpeed}
                 onThemeChange={handleThemeChange}
                 on3DModeChange={handle3DModeChange}
+                onOrbitingChange={handleOrbitingChange}
+                onOrbitSpeedChange={handleOrbitSpeedChange}
               />
             )}
           </Card>

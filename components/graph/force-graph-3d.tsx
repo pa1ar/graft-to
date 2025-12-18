@@ -47,6 +47,8 @@ interface ForceGraph3DProps {
   selectedNode?: GraphNode | null
   width?: number
   height?: number
+  isOrbiting?: boolean
+  orbitSpeed?: number
 }
 
 interface InternalGraphData {
@@ -54,7 +56,7 @@ interface InternalGraphData {
   links: GraphLink[]
 }
 
-export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, selectedNode, width, height }: ForceGraph3DProps) {
+export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, isOrbiting = false, orbitSpeed = 1 }: ForceGraph3DProps) {
   const graphRef = React.useRef<any>(null)
   const [theme, setTheme] = React.useState<ThemeMode>(() => getInitialTheme())
   const [hoveredNode, setHoveredNode] = React.useState<GraphNode | null>(null)
@@ -66,6 +68,7 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
   const spriteMapRef = React.useRef<Map<string, any>>(new Map())
   const [SpriteText, setSpriteText] = React.useState<any>(null)
   const cameraDistanceRef = React.useRef<number>(1000)
+  const orbitAngleRef = React.useRef<number>(0)
 
   // Load SpriteText dynamically
   React.useEffect(() => {
@@ -288,6 +291,33 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     return () => clearInterval(intervalId)
   }, [graphDataState.nodes])
 
+  // Camera orbit effect
+  React.useEffect(() => {
+    if (!graphRef.current || !isOrbiting) return
+
+    const distance = 1400
+    
+    // Set initial camera position
+    if (orbitAngleRef.current === 0) {
+      graphRef.current.cameraPosition({ z: distance })
+    }
+
+    const intervalId = setInterval(() => {
+      if (!graphRef.current) return
+      
+      graphRef.current.cameraPosition({
+        x: distance * Math.sin(orbitAngleRef.current),
+        z: distance * Math.cos(orbitAngleRef.current)
+      })
+      orbitAngleRef.current += (Math.PI / 300) * orbitSpeed
+    }, 10)
+
+    return () => {
+      clearInterval(intervalId)
+      orbitAngleRef.current = 0
+    }
+  }, [isOrbiting, orbitSpeed])
+
   return (
     <ForceGraph3D
       ref={graphRef}
@@ -310,6 +340,9 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
       backgroundColor={colors.background}
       cooldownTicks={100}
       warmupTicks={50}
+      enableNodeDrag={!isOrbiting}
+      enableNavigationControls={!isOrbiting}
+      showNavInfo={!isOrbiting}
     />
   )
 }
