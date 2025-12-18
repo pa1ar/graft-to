@@ -30,7 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import type { GraphData } from "@/lib/graph"
-import { createFetcher, getGraphStats, clearAllData } from "@/lib/graph"
+import { createFetcher, getGraphStats, clearAllData, clearCache } from "@/lib/graph"
 
 const STORAGE_KEY_URL = "craft_api_url"
 const STORAGE_KEY_KEY = "craft_api_key"
@@ -70,6 +70,7 @@ interface ConnectPanelProps {
   onApiKeyChange: (value: string) => void
   onConnect: (event: React.FormEvent<HTMLFormElement>) => void
   onDisconnect: () => void
+  onClearCache: () => void
 }
 
 function ConnectPanel({ 
@@ -83,7 +84,8 @@ function ConnectPanel({
   onApiUrlChange, 
   onApiKeyChange, 
   onConnect,
-  onDisconnect 
+  onDisconnect,
+  onClearCache
 }: ConnectPanelProps) {
   return (
     <form onSubmit={onConnect} className="space-y-4">
@@ -120,32 +122,6 @@ function ConnectPanel({
         )
       )}
 
-      {isLoading && (
-        <div className="space-y-2 rounded-2xl bg-muted/40 p-3 text-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="font-medium text-foreground">Loading graph</span>
-            {progress.total > 0 && (
-              <span>
-                {progress.current} / {progress.total}
-              </span>
-            )}
-          </div>
-          {progress.message && (
-            <div className="text-muted-foreground">{progress.message}</div>
-          )}
-          {progress.total > 0 && (
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
-                style={{
-                  width: `${Math.min(100, (progress.current / progress.total) * 100)}%`,
-                }}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
       <Button type="submit" disabled={isConnecting} className="w-full">
         {isConnecting ? "Connecting..." : "Save connection"}
       </Button>
@@ -174,6 +150,44 @@ function ConnectPanel({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {apiUrl && (
+        <Button 
+          variant="outline" 
+          className="w-full" 
+          type="button"
+          onClick={onClearCache}
+          disabled={isConnecting || isLoading}
+        >
+          Clear cache
+        </Button>
+      )}
+
+      {isLoading && (
+        <div className="space-y-2 rounded-2xl bg-muted/40 p-3 text-xs">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="font-medium text-foreground">Loading graph</span>
+            {progress.total > 0 && (
+              <span>
+                {progress.current} / {progress.total}
+              </span>
+            )}
+          </div>
+          {progress.message && (
+            <div className="text-muted-foreground">{progress.message}</div>
+          )}
+          {progress.total > 0 && (
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, (progress.current / progress.total) * 100)}%`,
+                }}
+              />
+            </div>
+          )}
+        </div>
       )}
     </form>
   )
@@ -250,18 +264,6 @@ function SearchPanel() {
 }
 
 export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh }: GraphControlsProps) {
-  const [dotCount, setDotCount] = React.useState(1)
-  
-  React.useEffect(() => {
-    if (!isRefreshing) return
-    
-    const interval = setInterval(() => {
-      setDotCount(prev => (prev % 3) + 1)
-    }, 500)
-    
-    return () => clearInterval(interval)
-  }, [isRefreshing])
-  
   const stats = React.useMemo(() => (graphData ? getGraphStats(graphData) : null), [graphData])
   const [apiUrl, setApiUrl] = React.useState("")
   const [apiKey, setApiKey] = React.useState("")
@@ -361,6 +363,17 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
     }
   }
 
+  const handleClearCache = async () => {
+    try {
+      if (apiUrl) {
+        await clearCache(apiUrl)
+        onReload()
+      }
+    } catch (error) {
+      console.error("Failed to clear cache:", error)
+    }
+  }
+
   return (
     <>
       {/* Hamburger menu when sidebar is collapsed */}
@@ -447,11 +460,6 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
             >
               <IconRefresh className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
-            {isRefreshing && (
-              <span className="ml-2 text-xs text-muted-foreground">
-                refreshing{'.'.repeat(dotCount)}
-              </span>
-            )}
           </div>
         </Card>
 
@@ -471,6 +479,7 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
                 onApiKeyChange={setApiKey}
                 onConnect={handleConnect}
                 onDisconnect={handleDisconnect}
+                onClearCache={handleClearCache}
               />
             )}
             {activePanel === 'stats' && (
