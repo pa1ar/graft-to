@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { IconX, IconExternalLink } from "@tabler/icons-react"
+import { IconX, IconExternalLink, IconChevronDown, IconChevronUp } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -39,6 +39,8 @@ function getSpaceId(): string | null {
 }
 
 export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
+  const [isMinimized, setIsMinimized] = React.useState(false)
+  
   if (!node) return null
 
   // Use clickableLink from node if available, otherwise construct it
@@ -59,11 +61,29 @@ export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
     return foundNode?.title || nodeId
   }
 
+  // Minimized pill view
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:w-96">
+        <Card 
+          className="cursor-pointer p-3 transition-transform hover:scale-[1.02]"
+          onClick={() => setIsMinimized(false)}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-sm font-medium">{node.title}</span>
+            <IconChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  // Expanded view
   return (
-    <div className="fixed right-4 top-4 z-50 w-96">
+    <div className="fixed left-4 right-4 top-4 z-50 md:left-auto md:right-4 md:w-96">
       <Card className="flex max-h-[calc(100vh-2rem)] flex-col">
         <CardHeader className="shrink-0 border-b">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
               <CardTitle className="text-lg">{node.title}</CardTitle>
               <CardDescription className="mt-1">
@@ -73,14 +93,26 @@ export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
                 {node.linkCount} {node.linkCount === 1 ? "connection" : "connections"}
               </CardDescription>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="shrink-0"
-            >
-              <IconX className="h-4 w-4" />
-            </Button>
+            <div className="flex shrink-0 flex-col gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="shrink-0"
+                title="Close"
+              >
+                <IconX className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMinimized(true)}
+                className="shrink-0"
+                title="Minimize"
+              >
+                <IconChevronDown className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <div className="mt-4">
             <Button

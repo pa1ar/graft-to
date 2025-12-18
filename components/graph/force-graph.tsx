@@ -20,7 +20,7 @@ type ThemeColors = {
 const LIGHT_THEME: ThemeColors = {
   background: "#ffffff",
   link: "#cbd5e1",
-  linkHighlight: "#e2e8f0",
+  linkHighlight: "#1e293b",
   node: "#9ca3af",
   nodeHighlight: "#fbbf24",
 }
