@@ -353,7 +353,7 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
       
       setApiUrl("")
       setApiKey("")
-      setActiveTab("connect")
+      setActivePanel("connect")
       
       window.location.reload()
     } catch (error) {
