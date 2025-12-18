@@ -45,10 +45,35 @@ export function useCraftGraph() {
     const apiKey = localStorage.getItem(STORAGE_KEY_KEY)
     
     if (!apiUrl || !apiKey) {
-      setState(prev => ({
-        ...prev,
-        error: "No API credentials configured",
-      }))
+      // Load demo graph when no credentials are configured
+      try {
+        setState(prev => ({
+          ...prev,
+          isLoading: true,
+          error: null,
+        }))
+        
+        const response = await fetch('/demo-graph.json')
+        if (!response.ok) {
+          throw new Error('Failed to load demo graph')
+        }
+        
+        const demoData: GraphData = await response.json()
+        
+        setState(prev => ({
+          ...prev,
+          graphData: demoData,
+          isLoading: false,
+          error: null,
+          isFromCache: false,
+        }))
+      } catch (err) {
+        setState(prev => ({
+          ...prev,
+          error: "Failed to load demo graph",
+          isLoading: false,
+        }))
+      }
       return
     }
 

@@ -189,6 +189,10 @@ function ConnectPanel({
           )}
         </div>
       )}
+
+      <div className="rounded-2xl bg-muted/40 p-3 text-xs text-muted-foreground">
+        Your API credentials are stored locally in your browser only. They are passed via headers through a proxy to avoid CORS issues, but never logged or stored on the server.
+      </div>
     </form>
   )
 }

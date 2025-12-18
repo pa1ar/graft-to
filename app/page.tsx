@@ -1,22 +1,59 @@
-import { ApiSetupForm } from "@/components/setup/api-setup-form"
+"use client"
+
+import * as React from "react"
+
+import { ForceGraph } from "@/components/graph/force-graph"
+import { NodePreview } from "@/components/graph/node-preview"
+import { GraphControls } from "@/components/graph/graph-controls"
+import { useCraftGraph } from "@/hooks/use-craft-graph"
+import type { GraphData, GraphNode } from "@/lib/graph"
+
+const EMPTY_GRAPH: GraphData = { nodes: [], links: [] }
 
 export default function Page() {
+  const { graphData, isLoading, isRefreshing, error, progress, reload, refresh } = useCraftGraph()
+  const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(null)
+  const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
+
+  React.useEffect(() => {
+    const updateDimensions = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
+    }
+
+    updateDimensions()
+    window.addEventListener("resize", updateDimensions)
+    return () => window.removeEventListener("resize", updateDimensions)
+  }, [])
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-8 pt-14">
-      <div className="mb-8 text-center">
-        <h1 className="mb-2 text-4xl font-bold tracking-tight">Graft</h1>
-        <p className="text-muted-foreground">
-          Visualize your Craft document connections
-        </p>
-      </div>
-      <ApiSetupForm />
-      <div className="mt-8 max-w-md text-center text-sm text-muted-foreground">
-        <p>
-          Your API credentials are stored locally in your browser only. They are
-          passed via headers through a proxy to avoid CORS issues, but never
-          logged or stored on the server.
-        </p>
-      </div>
+    <div className="relative h-screen w-screen overflow-hidden">
+      <GraphControls
+        graphData={graphData}
+        isLoading={isLoading}
+        isRefreshing={isRefreshing}
+        progress={progress}
+        error={error}
+        onReload={reload}
+        onRefresh={refresh}
+      />
+      
+      <ForceGraph
+        data={graphData ?? EMPTY_GRAPH}
+        onNodeClick={setSelectedNode}
+        onBackgroundClick={() => setSelectedNode(null)}
+        selectedNode={selectedNode}
+        width={dimensions.width}
+        height={dimensions.height}
+      />
+
+      <NodePreview 
+        node={selectedNode} 
+        graphData={graphData}
+        onClose={() => setSelectedNode(null)} 
+      />
     </div>
   )
 }
