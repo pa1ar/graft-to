@@ -8,7 +8,7 @@ import type { GraphData, GraphCache, DocumentMetadata } from './types';
 const DB_NAME = 'graft-cache';
 const DB_VERSION = 1;
 const STORE_NAME = 'graphs';
-const CACHE_VERSION = 3; // Bumped for document-only nodes (block resolution)
+const CACHE_VERSION = 4; // Bumped for optimized fetching with timestamps
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 
 function hashString(str: string): string {

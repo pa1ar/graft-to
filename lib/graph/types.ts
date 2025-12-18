@@ -12,6 +12,8 @@ export interface GraphNode {
   linksTo?: string[];
   linkedFrom?: string[];
   clickableLink?: string;
+  createdAt?: string;
+  lastModifiedAt?: string;
 }
 
 export interface GraphLink {
@@ -39,6 +41,10 @@ export interface CraftDocument {
   lastModifiedAt?: string;
   createdAt?: string;
   clickableLink?: string;
+}
+
+export interface DocumentWithLinks extends CraftDocument {
+  links: string[];
 }
 
 export interface CraftAPIConfig {
@@ -81,6 +87,7 @@ export interface DocumentMetadata {
   id: string;
   title: string;
   lastModifiedAt?: string;
+  createdAt?: string;
   deleted?: boolean;
 }
 
@@ -99,5 +106,11 @@ export interface GraphUpdateResult {
   modified: string[];
   deleted: string[];
   graphData: GraphData;
+  documentMetadata: DocumentMetadata[];
+}
+
+export interface GraphBuildResult {
+  graphData: GraphData;
+  documentMetadata: DocumentMetadata[];
 }
 

@@ -75,9 +75,9 @@ export function useCraftGraph() {
 
     try {
       const fetcher = createFetcher(apiUrl, apiKey)
-      let documentMetadata: DocumentMetadata[] = []
       
-      const graphData = await fetcher.buildGraphStreaming({
+      // Build graph - the result includes both graph data and document metadata
+      const result = await fetcher.buildGraphOptimized({
         callbacks: {
           onNodesReady: (nodes: GraphNode[]) => {
             console.log('[Graph] Nodes ready:', nodes.length)
@@ -124,25 +124,25 @@ export function useCraftGraph() {
                 linkCounts.set(targetId, (linkCounts.get(targetId) || 0) + 1)
               }
               
-                const finalNodes = updatedNodes.map(node => {
-                  const linkCount = linkCounts.get(node.id) || 0;
-                  return {
-                    ...node,
-                    linkCount,
-                    color: calculateNodeColor(linkCount),
-                  };
-                })
-                
-                // Rebuild node relationships to ensure linksTo and linkedFrom are up to date
-                const graphDataWithRelationships = rebuildNodeRelationships({
-                  nodes: finalNodes,
-                  links: updatedLinks,
-                });
-                
+              const finalNodes = updatedNodes.map(node => {
+                const linkCount = linkCounts.get(node.id) || 0;
                 return {
-                  ...prev,
-                  graphData: graphDataWithRelationships,
-                }
+                  ...node,
+                  linkCount,
+                  color: calculateNodeColor(linkCount),
+                };
+              })
+              
+              // Rebuild node relationships to ensure linksTo and linkedFrom are up to date
+              const graphDataWithRelationships = rebuildNodeRelationships({
+                nodes: finalNodes,
+                links: updatedLinks,
+              });
+              
+              return {
+                ...prev,
+                graphData: graphDataWithRelationships,
+              }
             })
           },
           onProgress: (current, total, message) => {
@@ -151,35 +151,24 @@ export function useCraftGraph() {
               progress: { current, total, message },
             }))
           },
-          onComplete: async (finalGraphData: GraphData) => {
+          onComplete: (finalGraphData: GraphData) => {
             console.log('[Graph] Complete:', finalGraphData.nodes.length, 'nodes,', finalGraphData.links.length, 'links')
-            
-            const allDocs = await fetcher.fetchDocuments(true)
-            documentMetadata = allDocs.map(doc => ({
-              id: doc.id,
-              title: doc.title,
-              lastModifiedAt: doc.lastModifiedAt,
-              deleted: doc.deleted,
-            }))
-            
-            setState(prev => ({
-              ...prev,
-              graphData: finalGraphData,
-              isLoading: false,
-            }))
-            
-            setCachedGraph(apiUrl, finalGraphData, documentMetadata).catch(err => {
-              console.warn('[Graph] Failed to cache:', err)
-            })
+            // State is set after buildGraphOptimized returns with full result
           },
         },
       })
 
+      // Set final state with the complete result
       setState(prev => ({
         ...prev,
-        graphData,
+        graphData: result.graphData,
         isLoading: false,
       }))
+      
+      // Cache the result with document metadata (already fetched during build)
+      setCachedGraph(apiUrl, result.graphData, result.documentMetadata).catch(err => {
+        console.warn('[Graph] Failed to cache:', err)
+      })
     } catch (err) {
       setState(prev => ({
         ...prev,
@@ -204,23 +193,9 @@ export function useCraftGraph() {
       return loadGraph(true)
     }
 
-    // Check cache age to determine refresh strategy
+    // Always use incremental updates - the optimized method properly compares timestamps
     const cacheAge = Date.now() - cachedWithMetadata.timestamp
-    const CACHE_STALE_THRESHOLD = 1000 * 60 * 5 // 5 minutes - force full refresh
-    const CACHE_RECENT_THRESHOLD = 1000 * 60 * 2 // 2 minutes - very recent, might miss changes
-    
-    // If cache is very old, force full refresh
-    if (cacheAge > CACHE_STALE_THRESHOLD) {
-      console.log('[Graph] Cache is stale (age:', Math.round(cacheAge / 1000 / 60), 'minutes), performing full refresh')
-      return loadGraph(true)
-    }
-    
-    // If cache is very recent (< 2 min), Craft API might not have updated metadata yet
-    // Force full refresh to catch any link changes that happened recently
-    if (cacheAge < CACHE_RECENT_THRESHOLD) {
-      console.log('[Graph] Cache is very recent (age:', Math.round(cacheAge / 1000), 'seconds), performing full refresh to catch recent changes')
-      return loadGraph(true)
-    }
+    console.log('[Graph] Incremental refresh (cache age:', Math.round(cacheAge / 1000), 'seconds)')
 
     setState(prev => ({
       ...prev,
@@ -231,7 +206,7 @@ export function useCraftGraph() {
     try {
       const fetcher = createFetcher(apiUrl, apiKey)
       
-      const result = await fetcher.buildGraphIncremental(
+      const result = await fetcher.buildGraphIncrementalOptimized(
         cachedWithMetadata.documentMetadata,
         cachedWithMetadata.graphData,
         {
@@ -284,8 +259,10 @@ export function useCraftGraph() {
                 
                 const linkCounts = new Map<string, number>()
                 for (const link of updatedLinks) {
-                  linkCounts.set(link.source, (linkCounts.get(link.source) || 0) + 1)
-                  linkCounts.set(link.target, (linkCounts.get(link.target) || 0) + 1)
+                  const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source
+                  const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target
+                  linkCounts.set(sourceId, (linkCounts.get(sourceId) || 0) + 1)
+                  linkCounts.set(targetId, (linkCounts.get(targetId) || 0) + 1)
                 }
                 
                 const finalNodes = updatedNodes.map(node => {
@@ -315,51 +292,25 @@ export function useCraftGraph() {
                 progress: { current, total, message },
               }))
             },
-            onComplete: async (finalGraphData: GraphData) => {
+            onComplete: (finalGraphData: GraphData) => {
               console.log('[Graph] Refresh complete')
-              
-              const allDocs = await fetcher.fetchDocuments(true)
-              const documentMetadata = allDocs.map(doc => ({
-                id: doc.id,
-                title: doc.title,
-                lastModifiedAt: doc.lastModifiedAt,
-                deleted: doc.deleted,
-              }))
-              
-              setState(prev => ({
-                ...prev,
-                graphData: finalGraphData,
-                isRefreshing: false,
-              }))
-              
-              setCachedGraph(apiUrl, finalGraphData, documentMetadata).catch(err => {
-                console.warn('[Graph] Failed to cache:', err)
-              })
+              // State is set after buildGraphIncrementalOptimized returns
             },
           },
         }
       )
 
-      if (!result.hasChanges) {
-        // Even if no changes detected, update cache timestamp to mark it as fresh
-        const allDocs = await fetcher.fetchDocuments(true)
-        const documentMetadata = allDocs.map(doc => ({
-          id: doc.id,
-          title: doc.title,
-          lastModifiedAt: doc.lastModifiedAt,
-          deleted: doc.deleted,
-        }))
-        
-        // Update cache with fresh metadata even if graph data didn't change
-        setCachedGraph(apiUrl, cachedWithMetadata.graphData, documentMetadata).catch(err => {
-          console.warn('[Graph] Failed to update cache timestamp:', err)
-        })
-        
-        setState(prev => ({
-          ...prev,
-          isRefreshing: false,
-        }))
-      }
+      // Set final state
+      setState(prev => ({
+        ...prev,
+        graphData: result.graphData,
+        isRefreshing: false,
+      }))
+      
+      // Update cache with result (includes fresh document metadata)
+      setCachedGraph(apiUrl, result.graphData, result.documentMetadata).catch(err => {
+        console.warn('[Graph] Failed to cache:', err)
+      })
     } catch (err) {
       console.error('[Graph] Refresh failed:', err)
       setState(prev => ({

@@ -14,8 +14,9 @@ import type {
   GraphLink,
   DocumentMetadata,
   GraphUpdateResult,
+  GraphBuildResult,
 } from './types';
-import { buildGraphData, calculateNodeColor, extractLinksFromBlock, rebuildNodeRelationships } from './parser';
+import { buildGraphData, calculateNodeColor, extractLinksFromBlock, rebuildNodeRelationships, extractBlockLinks } from './parser';
 
 export class CraftAPIError extends Error {
   constructor(
@@ -69,118 +70,43 @@ export class CraftGraphFetcher {
     return response.json();
   }
 
+  /**
+   * Fetch all documents with a single API call.
+   * No location filter = returns ALL documents in the space.
+   */
+  async fetchAllDocuments(fetchMetadata = true): Promise<CraftDocument[]> {
+    const params: Record<string, string> = {};
+    if (fetchMetadata) {
+      params.fetchMetadata = 'true';
+    }
+    
+    console.log('[Fetch] Getting all documents with single API call...');
+    const response = await this.fetchAPI<any>('/documents', params);
+    
+    const docs = response.items || response.documents || response;
+    if (!Array.isArray(docs)) {
+      console.warn('[Fetch] Unexpected response format:', response);
+      return [];
+    }
+    
+    // Extract spaceId from first document if available
+    if (docs.length > 0 && docs[0].clickableLink && typeof window !== 'undefined') {
+      const match = docs[0].clickableLink.match(/spaceId=([^&]+)/);
+      if (match) {
+        localStorage.setItem('craft_space_id', match[1]);
+      }
+    }
+    
+    console.log(`[Fetch] Got ${docs.length} documents in single call`);
+    return docs;
+  }
+
+  /**
+   * Legacy method - redirects to optimized version
+   * @deprecated Use fetchAllDocuments instead
+   */
   async fetchDocuments(fetchMetadata = true): Promise<CraftDocument[]> {
-    // First, get all folders to know where documents can be
-    const foldersResponse = await this.fetchAPI<any>('/folders');
-    console.log('[DEBUG] Folders response:', JSON.stringify(foldersResponse, null, 2));
-    
-    // Extract and store spaceId if present in the response
-    if (foldersResponse.spaceId && typeof window !== 'undefined') {
-      localStorage.setItem('craft_space_id', foldersResponse.spaceId);
-      console.log('[DEBUG] Extracted spaceId from folders response:', foldersResponse.spaceId);
-    }
-    
-    const folders = foldersResponse.items || foldersResponse.folders || [];
-    console.log(`[DEBUG] Found ${folders.length} top-level folders`);
-    
-    const allDocuments: CraftDocument[] = [];
-    let spaceIdExtracted = false;
-    
-    // Built-in locations use 'location' parameter
-    const builtInLocations = ['unsorted', 'daily_notes', 'templates'];
-    
-    // Custom folders use 'folderId' parameter
-    const customFolderIds: string[] = [];
-    
-    // Helper function to recursively collect all custom folder IDs
-    const collectFolderIds = (folderList: any[], depth = 0): void => {
-      for (const folder of folderList) {
-        // Skip trash and built-in locations
-        if (folder.id === 'trash' || builtInLocations.includes(folder.id)) continue;
-        
-        console.log(`[DEBUG] ${'  '.repeat(depth)}Custom Folder: ${folder.name} (${folder.id}) - ${folder.documentCount || 0} docs`);
-        customFolderIds.push(folder.id);
-        
-        // Recursively collect nested folder IDs
-        if (folder.folders && folder.folders.length > 0) {
-          collectFolderIds(folder.folders, depth + 1);
-        }
-      }
-    };
-    
-    collectFolderIds(folders);
-    console.log(`[DEBUG] Custom folders to fetch from: ${customFolderIds.length}`, customFolderIds);
-    
-    // Fetch from built-in locations using 'location' parameter
-    for (const locationId of builtInLocations) {
-      try {
-        console.log(`[DEBUG] Fetching from built-in location: ${locationId}`);
-        const params: Record<string, string> = {
-          location: locationId,
-        };
-        if (fetchMetadata) {
-          params.fetchMetadata = 'true';
-        }
-        const response = await this.fetchAPI<any>('/documents', params);
-        
-        const docs = response.items || response.documents || response;
-        if (Array.isArray(docs)) {
-          console.log(`[DEBUG] Location ${locationId}: ${docs.length} documents`);
-          allDocuments.push(...docs);
-          
-          // Extract spaceId from the first document's clickableLink
-          if (!spaceIdExtracted && docs.length > 0 && docs[0].clickableLink && typeof window !== 'undefined') {
-            const match = docs[0].clickableLink.match(/spaceId=([^&]+)/);
-            if (match) {
-              const spaceId = match[1];
-              localStorage.setItem('craft_space_id', spaceId);
-              console.log('[DEBUG] Extracted spaceId from clickableLink:', spaceId);
-              spaceIdExtracted = true;
-            }
-          }
-        }
-      } catch (error) {
-        console.warn(`[DEBUG] Failed to fetch from location ${locationId}:`, error);
-      }
-    }
-    
-    // Fetch from custom folders using 'folderId' parameter (singular!)
-    for (const folderId of customFolderIds) {
-      try {
-        console.log(`[DEBUG] Fetching from custom folder: ${folderId}`);
-        const params: Record<string, string> = {
-          folderId: folderId,  // Note: singular 'folderId', not 'folderIds'
-        };
-        if (fetchMetadata) {
-          params.fetchMetadata = 'true';
-        }
-        const response = await this.fetchAPI<any>('/documents', params);
-        
-        console.log(`[DEBUG] Folder ${folderId} response:`, response);
-        
-        const docs = response.items || response.documents || response;
-        if (Array.isArray(docs)) {
-          console.log(`[DEBUG] Folder ${folderId}: ${docs.length} documents`);
-          allDocuments.push(...docs);
-          
-          // Extract spaceId from the first document's clickableLink
-          if (!spaceIdExtracted && docs.length > 0 && docs[0].clickableLink && typeof window !== 'undefined') {
-            const match = docs[0].clickableLink.match(/spaceId=([^&]+)/);
-            if (match) {
-              const spaceId = match[1];
-              localStorage.setItem('craft_space_id', spaceId);
-              console.log('[DEBUG] Extracted spaceId from clickableLink:', spaceId);
-              spaceIdExtracted = true;
-            }
-          }
-        }
-      } catch (error) {
-        console.warn(`[DEBUG] Failed to fetch from folder ${folderId}:`, error);
-      }
-    }
-    
-    console.log(`[DEBUG] Fetched ${allDocuments.length} total documents from all locations`);
-    return allDocuments;
+    return this.fetchAllDocuments(fetchMetadata);
   }
 
   async fetchSpaceId(): Promise<string | null> {
@@ -594,6 +520,17 @@ export class CraftGraphFetcher {
     
     const hasChanges = added.length > 0 || modified.length > 0 || deleted.length > 0;
     
+    // Build fresh document metadata
+    const documentMetadata: DocumentMetadata[] = currentDocuments
+      .filter(doc => !doc.deleted)
+      .map(doc => ({
+        id: doc.id,
+        title: doc.title,
+        lastModifiedAt: doc.lastModifiedAt,
+        createdAt: doc.createdAt,
+        deleted: doc.deleted,
+      }));
+    
     if (!hasChanges) {
       callbacks?.onProgress?.(0, 0, 'Already up to date');
       callbacks?.onComplete?.(cachedGraphData);
@@ -603,6 +540,7 @@ export class CraftGraphFetcher {
         modified: [],
         deleted: [],
         graphData: cachedGraphData,
+        documentMetadata,
       };
     }
     
@@ -778,34 +716,38 @@ export class CraftGraphFetcher {
       modified,
       deleted,
       graphData: finalGraphData,
+      documentMetadata,
     };
   }
 
+  /**
+   * Discover all document links using a single search API call.
+   * Returns a map of documentId -> array of target block IDs.
+   */
   async discoverLinksViaSearch(): Promise<Map<string, string[]>> {
     const linksMap = new Map<string, string[]>();
     
     try {
+      console.log('[Search] Discovering links via search...');
       const response = await this.fetchAPI<any>('/documents/search', {
         regexps: 'block://',
       });
       
       const items = response.items || [];
-      console.log(`[Search] Found ${items.length} documents with block links`);
+      console.log(`[Search] Found ${items.length} search results with block links`);
       
       for (const item of items) {
         const documentId = item.documentId;
         const markdown = item.markdown || '';
         
-        const blockLinkRegex = /\[([^\]]+)\]\(block:\/\/([^)]+)\)/g;
-        let match;
-        const links: string[] = [];
-        
-        while ((match = blockLinkRegex.exec(markdown)) !== null) {
-          links.push(match[2]);
-        }
+        // Extract all block:// links from the markdown snippet
+        const links = extractBlockLinks(markdown);
         
         if (links.length > 0) {
-          linksMap.set(documentId, links);
+          // Merge with existing links for this document
+          const existing = linksMap.get(documentId) || [];
+          const combined = [...new Set([...existing, ...links])];
+          linksMap.set(documentId, combined);
         }
       }
       
@@ -824,6 +766,417 @@ export class CraftGraphFetcher {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Optimized graph building:
+   * 1. Single call to fetch all documents with metadata
+   * 2. Parallel fetch of blocks for all documents (high concurrency)
+   * 3. Extract links and build graph
+   */
+  async buildGraphOptimized(options: GraphBuildStreamingOptions = {}): Promise<GraphBuildResult> {
+    const { maxDepth = -1, excludeDeleted = true, callbacks } = options;
+
+    callbacks?.onProgress?.(0, 0, 'Fetching documents...');
+
+    // Step 1: Fetch all documents in a single call
+    const allDocuments = await this.fetchAllDocuments(true);
+
+    const documents = excludeDeleted
+      ? allDocuments.filter(doc => !doc.deleted)
+      : allDocuments;
+
+    // Sort documents by createdAt for chronological display (oldest first)
+    documents.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return aTime - bTime;
+    });
+
+    callbacks?.onProgress?.(0, documents.length, `Found ${documents.length} documents`);
+
+    // Build document metadata for caching
+    const documentMetadata: DocumentMetadata[] = documents.map(doc => ({
+      id: doc.id,
+      title: doc.title,
+      lastModifiedAt: doc.lastModifiedAt,
+      createdAt: doc.createdAt,
+      deleted: doc.deleted,
+    }));
+
+    // Step 2: Create nodes from documents (sorted chronologically)
+    const nodesMap = new Map<string, GraphNode>();
+    const blockToDocMap = new Map<string, string>();
+
+    for (const doc of documents) {
+      nodesMap.set(doc.id, {
+        id: doc.id,
+        title: doc.title || 'Untitled',
+        type: 'document',
+        linkCount: 0,
+        clickableLink: doc.clickableLink,
+        createdAt: doc.createdAt,
+        lastModifiedAt: doc.lastModifiedAt,
+      });
+      blockToDocMap.set(doc.id, doc.id);
+    }
+
+    callbacks?.onNodesReady?.(Array.from(nodesMap.values()));
+
+    // Step 3: Fetch blocks for all documents in parallel
+    const linksMap = new Map<string, Set<string>>();
+    let completed = 0;
+    const total = documents.length;
+
+    const addBlocksToMap = (docId: string, blocks: CraftBlock[]) => {
+      for (const block of blocks) {
+        blockToDocMap.set(block.id, docId);
+        if (block.content) {
+          addBlocksToMap(docId, block.content);
+        }
+      }
+    };
+
+    // High concurrency for parallel fetching
+    const concurrency = 15;
+    const queue = [...documents];
+
+    const worker = async () => {
+      while (queue.length > 0) {
+        const doc = queue.shift();
+        if (!doc) break;
+
+        try {
+          const blocks = await this.fetchBlocks(doc.id, maxDepth);
+          addBlocksToMap(doc.id, blocks);
+
+          // Extract links from blocks
+          const docLinks = new Set<string>();
+          for (const block of blocks) {
+            const links = extractLinksFromBlock(block);
+            for (const targetId of links) {
+              const targetDocId = blockToDocMap.get(targetId) || targetId;
+              if (doc.id !== targetDocId) {
+                docLinks.add(targetDocId);
+              }
+            }
+          }
+
+          if (docLinks.size > 0) {
+            linksMap.set(doc.id, docLinks);
+            
+            // Emit links as they're discovered
+            const newLinks = Array.from(docLinks)
+              .filter(targetId => nodesMap.has(targetId))
+              .map(targetId => ({ source: doc.id, target: targetId }));
+            
+            if (newLinks.length > 0) {
+              callbacks?.onLinksDiscovered?.(newLinks);
+            }
+          }
+        } catch (error) {
+          console.warn(`[Graph] Failed to fetch blocks for ${doc.id}:`, error);
+        }
+
+        completed++;
+        callbacks?.onProgress?.(completed, total, `Loading ${doc.title || 'Untitled'} (${completed}/${total})...`);
+      }
+    };
+
+    await Promise.all(
+      Array(Math.min(concurrency, documents.length))
+        .fill(0)
+        .map(() => worker())
+    );
+
+    // Step 5: Build final graph
+    const links: GraphLink[] = [];
+    const discoveredLinks: GraphLink[] = [];
+
+    for (const [source, targets] of linksMap.entries()) {
+      const sourceNode = nodesMap.get(source);
+      if (sourceNode) {
+        sourceNode.linksTo = Array.from(targets);
+      }
+
+      for (const target of targets) {
+        if (source !== target && nodesMap.has(target)) {
+          const link = { source, target };
+          links.push(link);
+          discoveredLinks.push(link);
+
+          const targetNode = nodesMap.get(target);
+          if (sourceNode) sourceNode.linkCount++;
+          if (targetNode) {
+            targetNode.linkCount++;
+            if (!targetNode.linkedFrom) targetNode.linkedFrom = [];
+            targetNode.linkedFrom.push(source);
+          }
+        }
+      }
+    }
+
+    // Emit links discovered
+    if (discoveredLinks.length > 0) {
+      callbacks?.onLinksDiscovered?.(discoveredLinks);
+    }
+
+    // Apply colors and finalize
+    for (const node of nodesMap.values()) {
+      node.color = calculateNodeColor(node.linkCount);
+    }
+
+    let graphData: GraphData = {
+      nodes: Array.from(nodesMap.values()),
+      links,
+    };
+
+    graphData = rebuildNodeRelationships(graphData);
+
+    callbacks?.onProgress?.(documents.length, documents.length, 'Complete');
+    callbacks?.onComplete?.(graphData);
+
+    return { graphData, documentMetadata };
+  }
+
+  /**
+   * Incremental graph update - only fetches documents modified since last sync.
+   */
+  async buildGraphIncrementalOptimized(
+    cachedMetadata: DocumentMetadata[],
+    cachedGraphData: GraphData,
+    options: GraphBuildStreamingOptions = {}
+  ): Promise<GraphUpdateResult> {
+    const { maxDepth = -1, callbacks } = options;
+
+    callbacks?.onProgress?.(0, 0, 'Checking for updates...');
+
+    // Fetch current documents
+    const currentDocuments = await this.fetchAllDocuments(true);
+    const currentDocMap = new Map(currentDocuments.map(doc => [doc.id, doc]));
+    const cachedDocMap = new Map(cachedMetadata.map(doc => [doc.id, doc]));
+
+    // Detect changes
+    const added: string[] = [];
+    const modified: string[] = [];
+    const deleted: string[] = [];
+
+    for (const doc of currentDocuments) {
+      const cached = cachedDocMap.get(doc.id);
+      if (!cached) {
+        added.push(doc.id);
+      } else {
+        const hasTimestampChange =
+          (doc.lastModifiedAt && cached.lastModifiedAt && doc.lastModifiedAt !== cached.lastModifiedAt) ||
+          (doc.lastModifiedAt && !cached.lastModifiedAt) ||
+          (!doc.lastModifiedAt && cached.lastModifiedAt);
+
+        const hasTitleChange = doc.title !== cached.title;
+
+        if (hasTimestampChange || hasTitleChange) {
+          modified.push(doc.id);
+        }
+      }
+    }
+
+    for (const cachedDoc of cachedMetadata) {
+      if (!currentDocMap.has(cachedDoc.id)) {
+        deleted.push(cachedDoc.id);
+      }
+    }
+
+    const hasChanges = added.length > 0 || modified.length > 0 || deleted.length > 0;
+
+    // Build fresh document metadata for caching
+    const documentMetadata: DocumentMetadata[] = currentDocuments
+      .filter(doc => !doc.deleted)
+      .map(doc => ({
+        id: doc.id,
+        title: doc.title,
+        lastModifiedAt: doc.lastModifiedAt,
+        createdAt: doc.createdAt,
+        deleted: doc.deleted,
+      }));
+
+    if (!hasChanges) {
+      callbacks?.onProgress?.(0, 0, 'Already up to date');
+      callbacks?.onComplete?.(cachedGraphData);
+      return {
+        hasChanges: false,
+        added: [],
+        modified: [],
+        deleted: [],
+        graphData: cachedGraphData,
+        documentMetadata,
+      };
+    }
+
+    console.log('[Incremental] Changes detected:', {
+      added: added.length,
+      modified: modified.length,
+      deleted: deleted.length,
+    });
+
+    // Start with cached data
+    let nodesMap = new Map(cachedGraphData.nodes.map(n => [n.id, { ...n }]));
+    let linksArray = [...cachedGraphData.links];
+
+    // Remove deleted documents
+    if (deleted.length > 0) {
+      callbacks?.onProgress?.(0, deleted.length + added.length + modified.length, 'Removing deleted documents...');
+      for (const docId of deleted) {
+        nodesMap.delete(docId);
+        linksArray = linksArray.filter(link => {
+          const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
+          const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+          return sourceId !== docId && targetId !== docId;
+        });
+      }
+    }
+
+    // Add new and update modified documents
+    const docsToProcess = [...added, ...modified];
+    if (docsToProcess.length > 0) {
+      // First, try to get links via search for efficiency
+      const searchLinks = await this.discoverLinksViaSearch();
+      const blockToDocMap = new Map<string, string>();
+
+      // Initialize blockToDocMap with existing nodes
+      for (const [nodeId, node] of nodesMap) {
+        if (node.type === 'document') {
+          blockToDocMap.set(nodeId, nodeId);
+        }
+      }
+
+      let completed = 0;
+      const totalWork = docsToProcess.length;
+
+      for (const docId of docsToProcess) {
+        const doc = currentDocMap.get(docId);
+        if (!doc || doc.deleted) continue;
+
+        callbacks?.onProgress?.(completed + 1, totalWork, `Updating ${doc.title || 'Untitled'}...`);
+
+        // Remove old links from this document
+        linksArray = linksArray.filter(link => {
+          const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
+          return sourceId !== docId;
+        });
+
+        // Add or update node
+        const isNew = !nodesMap.has(docId);
+        const node: GraphNode = {
+          id: docId,
+          title: doc.title || 'Untitled',
+          type: 'document',
+          linkCount: 0,
+          clickableLink: doc.clickableLink,
+          createdAt: doc.createdAt,
+          lastModifiedAt: doc.lastModifiedAt,
+        };
+        nodesMap.set(docId, node);
+
+        if (isNew) {
+          callbacks?.onNodesReady?.([node]);
+        }
+
+        // Get links from search results or fetch blocks
+        let links = searchLinks.get(docId) || [];
+        
+        if (links.length === 0 || links.some(id => !nodesMap.has(id) && !blockToDocMap.has(id))) {
+          // Need to fetch blocks to resolve links
+          try {
+            const blocks = await this.fetchBlocks(docId, maxDepth);
+            
+            const addBlocksToMap = (blocks: CraftBlock[]) => {
+              for (const block of blocks) {
+                blockToDocMap.set(block.id, docId);
+                if (block.content) addBlocksToMap(block.content);
+              }
+            };
+            addBlocksToMap(blocks);
+
+            links = [];
+            for (const block of blocks) {
+              links.push(...extractLinksFromBlock(block));
+            }
+          } catch (error) {
+            console.warn(`[Incremental] Failed to fetch blocks for ${docId}:`, error);
+          }
+        }
+
+        // Add new links
+        const newLinks: GraphLink[] = [];
+        for (const targetId of links) {
+          const targetDocId = blockToDocMap.get(targetId) || targetId;
+          
+          if (docId !== targetDocId && (nodesMap.has(targetDocId) || currentDocMap.has(targetDocId))) {
+            // Ensure target node exists
+            if (!nodesMap.has(targetDocId)) {
+              const targetDoc = currentDocMap.get(targetDocId);
+              if (targetDoc) {
+                const targetNode: GraphNode = {
+                  id: targetDocId,
+                  title: targetDoc.title || 'Untitled',
+                  type: 'document',
+                  linkCount: 0,
+                  clickableLink: targetDoc.clickableLink,
+                  createdAt: targetDoc.createdAt,
+                  lastModifiedAt: targetDoc.lastModifiedAt,
+                };
+                nodesMap.set(targetDocId, targetNode);
+                callbacks?.onNodesReady?.([targetNode]);
+              }
+            }
+
+            if (nodesMap.has(targetDocId)) {
+              newLinks.push({ source: docId, target: targetDocId });
+            }
+          }
+        }
+
+        if (newLinks.length > 0) {
+          linksArray.push(...newLinks);
+          callbacks?.onLinksDiscovered?.(newLinks);
+        }
+
+        completed++;
+      }
+    }
+
+    // Recalculate link counts
+    const linkCounts = new Map<string, number>();
+    for (const link of linksArray) {
+      const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
+      const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+      linkCounts.set(sourceId, (linkCounts.get(sourceId) || 0) + 1);
+      linkCounts.set(targetId, (linkCounts.get(targetId) || 0) + 1);
+    }
+
+    const nodesArray = Array.from(nodesMap.values()).map(node => ({
+      ...node,
+      linkCount: linkCounts.get(node.id) || 0,
+      color: calculateNodeColor(linkCounts.get(node.id) || 0),
+    }));
+
+    let finalGraphData: GraphData = {
+      nodes: nodesArray,
+      links: linksArray,
+    };
+
+    finalGraphData = rebuildNodeRelationships(finalGraphData);
+
+    callbacks?.onProgress?.(docsToProcess.length, docsToProcess.length, 'Update complete');
+    callbacks?.onComplete?.(finalGraphData);
+
+    return {
+      hasChanges: true,
+      added,
+      modified,
+      deleted,
+      graphData: finalGraphData,
+      documentMetadata,
+    };
   }
 }
 
