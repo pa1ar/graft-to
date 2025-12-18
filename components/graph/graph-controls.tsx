@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { 
   IconMoon, 
   IconRefresh, 
@@ -530,129 +531,182 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
 
   return (
     <>
-      {/* Hamburger menu when sidebar is collapsed */}
-      {sidebarCollapsed && (
-        <div className="fixed left-4 top-14 z-40">
-          <Card className="p-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarCollapsed(false)}
-              title="Expand sidebar"
+      <AnimatePresence initial={false}>
+        {sidebarCollapsed ? (
+          // Hamburger button when collapsed
+          <motion.div
+            key="hamburger"
+            layoutId="sidebar-container"
+            className="fixed left-4 top-14 z-40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 0.15,
+            }}
+          >
+            <motion.div
+              layoutId="sidebar-card"
+              className="rounded-2xl border bg-card shadow-sm"
+              transition={{
+                type: "spring",
+                stiffness: 400,
+                damping: 30,
+                duration: 0.4,
+              }}
             >
-              <IconMenu2 className="h-4 w-4" />
-            </Button>
-          </Card>
-        </div>
-      )}
+              <div className="p-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarCollapsed(false)}
+                  title="Expand sidebar"
+                >
+                  <IconMenu2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : (
+          // Full sidebar when expanded
+          <motion.div
+            key="sidebar"
+            layoutId="sidebar-container"
+            className="fixed left-4 right-4 top-14 z-40 w-[calc(100%-2rem)] md:right-auto md:w-[320px]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 0.15,
+            }}
+          >
+            <div className="space-y-2">
+              {/* Toolbar */}
+              <motion.div
+                layoutId="sidebar-card"
+                className="rounded-2xl border bg-card shadow-sm"
+                transition={{
+                  type: "spring",
+                  stiffness: 400,
+                  damping: 30,
+                  duration: 0.4,
+                }}
+              >
+                <div className="p-2">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSidebarCollapsed(true)}
+                      title="Collapse sidebar"
+                    >
+                      <IconLayoutSidebarLeftCollapse className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={activePanel === 'connect' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => handlePanelToggle('connect')}
+                      title="Connect"
+                    >
+                      <IconPlug className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={activePanel === 'stats' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => handlePanelToggle('stats')}
+                      title="Stats"
+                      disabled={!stats}
+                    >
+                      <IconChartBar className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={activePanel === 'customize' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => handlePanelToggle('customize')}
+                      title="Customize"
+                    >
+                      <IconAdjustments className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={activePanel === 'search' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => handlePanelToggle('search')}
+                      title="Search"
+                    >
+                      <IconSearch className="h-4 w-4" />
+                    </Button>
+                    
+                    {/* Spacer */}
+                    <div className="flex-1" />
+                    
+                    {/* Right-aligned buttons */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={onRefresh || onReload} 
+                      title="Refresh graph"
+                      disabled={isRefreshing}
+                    >
+                      <IconRefresh className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
 
-      {/* Main sidebar */}
-      <div 
-        className={`fixed left-4 right-4 top-14 z-40 w-[calc(100%-2rem)] space-y-2 transition-transform duration-200 ease-out md:right-auto md:w-[320px] ${
-          sidebarCollapsed ? '-translate-x-[calc(100%+1rem)]' : 'translate-x-0'
-        }`}
-      >
-        {/* Toolbar */}
-        <Card className="p-2">
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarCollapsed(true)}
-              title="Collapse sidebar"
-            >
-              <IconLayoutSidebarLeftCollapse className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={activePanel === 'connect' ? 'secondary' : 'ghost'}
-              size="icon"
-              onClick={() => handlePanelToggle('connect')}
-              title="Connect"
-            >
-              <IconPlug className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={activePanel === 'stats' ? 'secondary' : 'ghost'}
-              size="icon"
-              onClick={() => handlePanelToggle('stats')}
-              title="Stats"
-              disabled={!stats}
-            >
-              <IconChartBar className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={activePanel === 'customize' ? 'secondary' : 'ghost'}
-              size="icon"
-              onClick={() => handlePanelToggle('customize')}
-              title="Customize"
-            >
-              <IconAdjustments className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={activePanel === 'search' ? 'secondary' : 'ghost'}
-              size="icon"
-              onClick={() => handlePanelToggle('search')}
-              title="Search"
-            >
-              <IconSearch className="h-4 w-4" />
-            </Button>
-            
-            {/* Spacer */}
-            <div className="flex-1" />
-            
-            {/* Right-aligned buttons */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={onRefresh || onReload} 
-              title="Refresh graph"
-              disabled={isRefreshing}
-            >
-              <IconRefresh className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </Card>
-
-        {/* Panel content */}
-        {activePanel && (
-          <Card className="p-4">
-            {activePanel === 'connect' && (
-              <ConnectPanel
-                apiUrl={apiUrl}
-                apiKey={apiKey}
-                isConnecting={isConnecting}
-                isLoading={isLoading}
-                formError={formError}
-                error={error}
-                progress={progress}
-                onApiUrlChange={setApiUrl}
-                onApiKeyChange={setApiKey}
-                onConnect={handleConnect}
-                onDisconnect={handleDisconnect}
-                onClearCache={handleClearCache}
-              />
-            )}
-            {activePanel === 'stats' && (
-              <StatsPanel stats={stats} />
-            )}
-            {activePanel === 'search' && (
-              <SearchPanel />
-            )}
-            {activePanel === 'customize' && (
-              <CustomizePanel 
-                isDarkMode={isDarkMode}
-                is3DMode={is3DMode}
-                isOrbiting={isOrbiting}
-                orbitSpeed={orbitSpeed}
-                onThemeChange={handleThemeChange}
-                on3DModeChange={handle3DModeChange}
-                onOrbitingChange={handleOrbitingChange}
-                onOrbitSpeedChange={handleOrbitSpeedChange}
-              />
-            )}
-          </Card>
+              {/* Panel content */}
+              <AnimatePresence>
+                {activePanel && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{
+                      duration: 0.2,
+                    }}
+                  >
+                    <Card className="p-4">
+                      {activePanel === 'connect' && (
+                        <ConnectPanel
+                          apiUrl={apiUrl}
+                          apiKey={apiKey}
+                          isConnecting={isConnecting}
+                          isLoading={isLoading}
+                          formError={formError}
+                          error={error}
+                          progress={progress}
+                          onApiUrlChange={setApiUrl}
+                          onApiKeyChange={setApiKey}
+                          onConnect={handleConnect}
+                          onDisconnect={handleDisconnect}
+                          onClearCache={handleClearCache}
+                        />
+                      )}
+                      {activePanel === 'stats' && (
+                        <StatsPanel stats={stats} />
+                      )}
+                      {activePanel === 'search' && (
+                        <SearchPanel />
+                      )}
+                      {activePanel === 'customize' && (
+                        <CustomizePanel 
+                          isDarkMode={isDarkMode}
+                          is3DMode={is3DMode}
+                          isOrbiting={isOrbiting}
+                          orbitSpeed={orbitSpeed}
+                          onThemeChange={handleThemeChange}
+                          on3DModeChange={handle3DModeChange}
+                          onOrbitingChange={handleOrbitingChange}
+                          onOrbitSpeedChange={handleOrbitSpeedChange}
+                        />
+                      )}
+                    </Card>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </>
   )
 }
