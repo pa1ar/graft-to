@@ -40,7 +40,7 @@ export function Header() {
               rel="noopener noreferrer"
               className="text-foreground hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
             >
-              1ar
+              pa1ar
             </a>
           </div>
           
