@@ -80,8 +80,8 @@ export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
 
   // Expanded view
   return (
-    <div className="fixed left-4 right-4 top-4 z-50 md:left-auto md:right-4 md:w-96">
-      <Card className="flex max-h-[calc(100vh-2rem)] flex-col">
+    <div className="fixed left-4 right-4 top-14 z-50 md:left-auto md:right-4 md:w-96">
+      <Card className="flex max-h-[calc(100vh-4.5rem)] flex-col">
         <CardHeader className="shrink-0 border-b">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">

@@ -2,7 +2,7 @@ import { ApiSetupForm } from "@/components/setup/api-setup-form"
 
 export default function Page() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-8">
+    <div className="flex min-h-screen flex-col items-center justify-center p-8 pt-14">
       <div className="mb-8 text-center">
         <h1 className="mb-2 text-4xl font-bold tracking-tight">Graft</h1>
         <p className="text-muted-foreground">

@@ -365,7 +365,7 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
     <>
       {/* Hamburger menu when sidebar is collapsed */}
       {sidebarCollapsed && (
-        <div className="fixed left-4 top-4 z-40">
+        <div className="fixed left-4 top-14 z-40">
           <Card className="p-2">
             <Button
               variant="ghost"
@@ -381,7 +381,7 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
 
       {/* Main sidebar */}
       <div 
-        className={`fixed left-4 right-4 top-4 z-40 w-[calc(100%-2rem)] space-y-2 transition-transform duration-200 ease-out md:right-auto md:w-[320px] ${
+        className={`fixed left-4 right-4 top-14 z-40 w-[calc(100%-2rem)] space-y-2 transition-transform duration-200 ease-out md:right-auto md:w-[320px] ${
           sidebarCollapsed ? '-translate-x-[calc(100%+1rem)]' : 'translate-x-0'
         }`}
       >
