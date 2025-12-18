@@ -65,6 +65,7 @@ interface GraphControlsProps {
   onIsOrbitingChange?: (isOrbiting: boolean) => void
   orbitSpeed?: number
   onOrbitSpeedChange?: (speed: number) => void
+  onNodeSelect?: (nodeId: string) => void
 }
 
 type PanelType = 'connect' | 'stats' | 'search' | 'customize' | null
@@ -262,7 +263,28 @@ function StatsPanel({ stats }: StatsPanelProps) {
 }
 
 // Search Panel Component
-function SearchPanel() {
+interface SearchPanelProps {
+  graphData: GraphData | null
+  onNodeSelect?: (nodeId: string) => void
+}
+
+function SearchPanel({ graphData, onNodeSelect }: SearchPanelProps) {
+  const [searchQuery, setSearchQuery] = React.useState("")
+  
+  const searchResults = React.useMemo(() => {
+    if (!graphData || !searchQuery.trim()) return []
+    
+    const query = searchQuery.toLowerCase()
+    return graphData.nodes
+      .filter(node => node.title.toLowerCase().includes(query))
+      .slice(0, 10) // Limit to 10 results
+  }, [graphData, searchQuery])
+  
+  const handleResultClick = (nodeId: string) => {
+    onNodeSelect?.(nodeId)
+    setSearchQuery("") // Clear search after selection
+  }
+  
   return (
     <div className="space-y-4">
       <Field>
@@ -270,11 +292,35 @@ function SearchPanel() {
         <Input
           id="graph-search"
           type="search"
-          placeholder="Search..."
-          disabled
+          placeholder="Search by title..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
       </Field>
-      <p className="text-xs text-muted-foreground">Search functionality coming soon</p>
+      
+      {searchQuery.trim() && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Results ({searchResults.length})
+          </p>
+          {searchResults.length > 0 ? (
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {searchResults.map((node) => (
+                <div
+                  key={node.id}
+                  onClick={() => handleResultClick(node.id)}
+                  className="cursor-pointer rounded bg-muted p-2 transition-colors hover:bg-muted/80"
+                >
+                  <div className="text-sm font-medium">{node.title}</div>
+                  <code className="text-xs text-muted-foreground break-all">{node.id}</code>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No results found</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -406,7 +452,7 @@ function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, onThemeC
   )
 }
 
-export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange }: GraphControlsProps) {
+export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange, onNodeSelect }: GraphControlsProps) {
   const stats = React.useMemo(() => (graphData ? getGraphStats(graphData) : null), [graphData])
   const [apiUrl, setApiUrl] = React.useState("")
   const [apiKey, setApiKey] = React.useState("")
@@ -685,7 +731,10 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
                         <StatsPanel stats={stats} />
                       )}
                       {activePanel === 'search' && (
-                        <SearchPanel />
+                        <SearchPanel 
+                          graphData={graphData}
+                          onNodeSelect={onNodeSelect}
+                        />
                       )}
                       {activePanel === 'customize' && (
                         <CustomizePanel 

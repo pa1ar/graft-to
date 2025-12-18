@@ -11,6 +11,7 @@ interface NodePreviewProps {
   node: GraphNode | null
   graphData: GraphData | null
   onClose: () => void
+  onNodeSelect?: (nodeId: string) => void
 }
 
 function getSpaceId(): string | null {
@@ -38,7 +39,7 @@ function getSpaceId(): string | null {
   return null
 }
 
-export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
+export function NodePreview({ node, graphData, onClose, onNodeSelect }: NodePreviewProps) {
   const [isMinimized, setIsMinimized] = React.useState(false)
   
   if (!node) return null
@@ -137,7 +138,11 @@ export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
                 <h3 className="mb-2 text-sm font-medium">Links to ({node.linksTo.length})</h3>
                 <div className="space-y-2">
                   {node.linksTo.map((linkId) => (
-                    <div key={linkId} className="rounded bg-muted p-2">
+                    <div 
+                      key={linkId} 
+                      onClick={() => onNodeSelect?.(linkId)}
+                      className="cursor-pointer rounded bg-muted p-2 transition-colors hover:bg-muted/80"
+                    >
                       <div className="text-sm font-medium">{getNodeTitle(linkId)}</div>
                       <code className="text-xs text-muted-foreground break-all">{linkId}</code>
                     </div>
@@ -151,7 +156,11 @@ export function NodePreview({ node, graphData, onClose }: NodePreviewProps) {
                 <h3 className="mb-2 text-sm font-medium">Linked from ({node.linkedFrom.length})</h3>
                 <div className="space-y-2">
                   {node.linkedFrom.map((linkId) => (
-                    <div key={linkId} className="rounded bg-muted p-2">
+                    <div 
+                      key={linkId} 
+                      onClick={() => onNodeSelect?.(linkId)}
+                      className="cursor-pointer rounded bg-muted p-2 transition-colors hover:bg-muted/80"
+                    >
                       <div className="text-sm font-medium">{getNodeTitle(linkId)}</div>
                       <code className="text-xs text-muted-foreground break-all">{linkId}</code>
                     </div>

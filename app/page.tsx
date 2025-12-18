@@ -39,6 +39,14 @@ export default function Page() {
     }
   }, [is3D, isOrbiting])
 
+  const handleNodeSelect = React.useCallback((nodeId: string) => {
+    if (!graphData) return
+    const node = graphData.nodes.find(n => n.id === nodeId)
+    if (node) {
+      setSelectedNode(node)
+    }
+  }, [graphData])
+
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <GraphControls
@@ -55,6 +63,7 @@ export default function Page() {
         onIsOrbitingChange={setIsOrbiting}
         orbitSpeed={orbitSpeed}
         onOrbitSpeedChange={setOrbitSpeed}
+        onNodeSelect={handleNodeSelect}
       />
       
       {is3D ? (
@@ -82,7 +91,8 @@ export default function Page() {
       <NodePreview 
         node={selectedNode} 
         graphData={graphData}
-        onClose={() => setSelectedNode(null)} 
+        onClose={() => setSelectedNode(null)}
+        onNodeSelect={handleNodeSelect}
       />
     </div>
   )
