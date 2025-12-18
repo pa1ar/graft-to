@@ -10,7 +10,10 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconPlug,
   IconChartBar,
-  IconSearch
+  IconSearch,
+  IconAdjustments,
+  IconBox,
+  IconSquare
 } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
@@ -53,9 +56,11 @@ interface GraphControlsProps {
   error?: string | null
   onReload: () => void
   onRefresh?: () => void
+  is3DMode?: boolean
+  onIs3DModeChange?: (is3D: boolean) => void
 }
 
-type PanelType = 'connect' | 'stats' | 'search' | null
+type PanelType = 'connect' | 'stats' | 'search' | 'customize' | null
 
 // Connect Panel Component
 interface ConnectPanelProps {
@@ -267,7 +272,81 @@ function SearchPanel() {
   )
 }
 
-export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh }: GraphControlsProps) {
+// Customize Panel Component
+interface CustomizePanelProps {
+  isDarkMode: boolean
+  is3DMode: boolean
+  onThemeChange: (isDark: boolean) => void
+  on3DModeChange: (is3D: boolean) => void
+}
+
+function CustomizePanel({ isDarkMode, is3DMode, onThemeChange, on3DModeChange }: CustomizePanelProps) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Theme</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onThemeChange(false)}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              !isDarkMode 
+                ? 'border-primary text-primary' 
+                : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconSun className="h-5 w-5" />
+            <span className="text-xs font-medium">Light</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onThemeChange(true)}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              isDarkMode 
+                ? 'border-primary text-primary' 
+                : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconMoon className="h-5 w-5" />
+            <span className="text-xs font-medium">Dark</span>
+          </button>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <p className="text-sm font-medium">View Mode</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => on3DModeChange(false)}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              !is3DMode 
+                ? 'border-primary text-primary' 
+                : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconSquare className="h-5 w-5" />
+            <span className="text-xs font-medium">2D</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => on3DModeChange(true)}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              is3DMode 
+                ? 'border-primary text-primary' 
+                : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconBox className="h-5 w-5" />
+            <span className="text-xs font-medium">3D</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, is3DMode = false, onIs3DModeChange }: GraphControlsProps) {
   const stats = React.useMemo(() => (graphData ? getGraphStats(graphData) : null), [graphData])
   const [apiUrl, setApiUrl] = React.useState("")
   const [apiKey, setApiKey] = React.useState("")
@@ -312,8 +391,12 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
     setActivePanel(prev => prev === panel ? null : panel)
   }
 
-  const toggleTheme = () => {
-    applyTheme(isDarkMode ? "light" : "dark")
+  const handleThemeChange = (isDark: boolean) => {
+    applyTheme(isDark ? "dark" : "light")
+  }
+
+  const handle3DModeChange = (is3D: boolean) => {
+    onIs3DModeChange?.(is3D)
   }
 
   const handleConnect = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -431,6 +514,14 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
               <IconChartBar className="h-4 w-4" />
             </Button>
             <Button
+              variant={activePanel === 'customize' ? 'secondary' : 'ghost'}
+              size="icon"
+              onClick={() => handlePanelToggle('customize')}
+              title="Customize"
+            >
+              <IconAdjustments className="h-4 w-4" />
+            </Button>
+            <Button
               variant={activePanel === 'search' ? 'secondary' : 'ghost'}
               size="icon"
               onClick={() => handlePanelToggle('search')}
@@ -443,18 +534,6 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
             <div className="flex-1" />
             
             {/* Right-aligned buttons */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {isDarkMode ? (
-                <IconSun className="h-4 w-4" />
-              ) : (
-                <IconMoon className="h-4 w-4" />
-              )}
-            </Button>
             <Button 
               variant="ghost" 
               size="icon" 
@@ -491,6 +570,14 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
             )}
             {activePanel === 'search' && (
               <SearchPanel />
+            )}
+            {activePanel === 'customize' && (
+              <CustomizePanel 
+                isDarkMode={isDarkMode}
+                is3DMode={is3DMode}
+                onThemeChange={handleThemeChange}
+                on3DModeChange={handle3DModeChange}
+              />
             )}
           </Card>
         )}

@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { ForceGraph } from "@/components/graph/force-graph"
+import { ForceGraph3DComponent } from "@/components/graph/force-graph-3d"
 import { NodePreview } from "@/components/graph/node-preview"
 import { GraphControls } from "@/components/graph/graph-controls"
 import { useCraftGraph } from "@/hooks/use-craft-graph"
@@ -14,6 +15,7 @@ export default function Page() {
   const { graphData, isLoading, isRefreshing, error, progress, reload, refresh } = useCraftGraph()
   const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(null)
   const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
+  const [is3D, setIs3D] = React.useState(false)
 
   React.useEffect(() => {
     const updateDimensions = () => {
@@ -38,16 +40,29 @@ export default function Page() {
         error={error}
         onReload={reload}
         onRefresh={refresh}
+        is3DMode={is3D}
+        onIs3DModeChange={setIs3D}
       />
       
-      <ForceGraph
-        data={graphData ?? EMPTY_GRAPH}
-        onNodeClick={setSelectedNode}
-        onBackgroundClick={() => setSelectedNode(null)}
-        selectedNode={selectedNode}
-        width={dimensions.width}
-        height={dimensions.height}
-      />
+      {is3D ? (
+        <ForceGraph3DComponent
+          data={graphData ?? EMPTY_GRAPH}
+          onNodeClick={setSelectedNode}
+          onBackgroundClick={() => setSelectedNode(null)}
+          selectedNode={selectedNode}
+          width={dimensions.width}
+          height={dimensions.height}
+        />
+      ) : (
+        <ForceGraph
+          data={graphData ?? EMPTY_GRAPH}
+          onNodeClick={setSelectedNode}
+          onBackgroundClick={() => setSelectedNode(null)}
+          selectedNode={selectedNode}
+          width={dimensions.width}
+          height={dimensions.height}
+        />
+      )}
 
       <NodePreview 
         node={selectedNode} 
