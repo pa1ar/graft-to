@@ -72,6 +72,8 @@
   --chart-4: oklch(0.554 0.135 66.442);
   --chart-5: oklch(0.476 0.114 61.907);
   --radius: 0.875rem;
+  --header-height: 56px;
+  --header-offset: calc(var(--header-height) + 12px);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.681 0.162 75.834);
@@ -122,6 +124,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    padding-top: var(--header-height);
+    background-color: var(--background);
   }
 }
 

@@ -10,6 +10,8 @@ import { useCraftGraph } from "@/hooks/use-craft-graph"
 import type { GraphData, GraphNode } from "@/lib/graph"
 
 const EMPTY_GRAPH: GraphData = { nodes: [], links: [] }
+const HEADER_EVENT = "graft:header-size-change"
+const HEADER_FALLBACK = 56
 
 export default function Page() {
   const { graphData, isLoading, isRefreshing, error, progress, reload, refresh } = useCraftGraph()
@@ -19,18 +21,30 @@ export default function Page() {
   const [isOrbiting, setIsOrbiting] = React.useState(false)
   const [orbitSpeed, setOrbitSpeed] = React.useState(1)
 
+  const getHeaderHeight = React.useCallback(() => {
+    if (typeof document === "undefined") return HEADER_FALLBACK
+    const value = getComputedStyle(document.documentElement).getPropertyValue("--header-height")
+    const parsed = parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : HEADER_FALLBACK
+  }, [])
+
   React.useEffect(() => {
     const updateDimensions = () => {
+      const headerHeight = getHeaderHeight()
       setDimensions({
         width: window.innerWidth,
-        height: window.innerHeight,
+        height: Math.max(0, window.innerHeight - headerHeight),
       })
     }
 
     updateDimensions()
     window.addEventListener("resize", updateDimensions)
-    return () => window.removeEventListener("resize", updateDimensions)
-  }, [])
+    window.addEventListener(HEADER_EVENT, updateDimensions)
+    return () => {
+      window.removeEventListener("resize", updateDimensions)
+      window.removeEventListener(HEADER_EVENT, updateDimensions)
+    }
+  }, [getHeaderHeight])
 
   // Disable orbit when switching to 2D mode
   React.useEffect(() => {
@@ -48,7 +62,7 @@ export default function Page() {
   }, [graphData])
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
+    <div className="relative w-screen overflow-hidden" style={{ height: "calc(100vh - var(--header-height))" }}>
       <GraphControls
         graphData={graphData}
         isLoading={isLoading}

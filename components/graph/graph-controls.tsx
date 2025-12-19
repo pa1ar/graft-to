@@ -583,7 +583,8 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
           <motion.div
             key="hamburger"
             layoutId="sidebar-container"
-            className="fixed left-4 top-14 z-40"
+            className="fixed left-4 z-40"
+            style={{ top: "var(--header-offset)" }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -618,7 +619,8 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
           <motion.div
             key="sidebar"
             layoutId="sidebar-container"
-            className="fixed left-4 right-4 top-14 z-40 w-[calc(100%-2rem)] md:right-auto md:w-[320px]"
+            className="fixed left-4 right-4 z-40 w-[calc(100%-2rem)] md:right-auto md:w-[320px]"
+            style={{ top: "var(--header-offset)" }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

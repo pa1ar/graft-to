@@ -1,6 +1,46 @@
+"use client"
+
+import * as React from "react"
+
+const HEADER_EVENT = "graft:header-size-change"
+const HEADER_FALLBACK = 56
+const HEADER_GAP = 12
+
 export function Header() {
+  const headerRef = React.useRef<HTMLElement>(null)
+
+  React.useEffect(() => {
+    const headerEl = headerRef.current
+    if (!headerEl) return
+
+    const updateHeaderVars = () => {
+      const height = headerEl.getBoundingClientRect().height || HEADER_FALLBACK
+      const offset = height + HEADER_GAP
+
+      const root = document.documentElement
+      root.style.setProperty("--header-height", `${height}px`)
+      root.style.setProperty("--header-offset", `${offset}px`)
+
+      window.dispatchEvent(new CustomEvent(HEADER_EVENT, { detail: { height, offset } }))
+    }
+
+    const resizeObserver = new ResizeObserver(updateHeaderVars)
+    resizeObserver.observe(headerEl)
+
+    window.addEventListener("resize", updateHeaderVars)
+    updateHeaderVars()
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener("resize", updateHeaderVars)
+    }
+  }, [])
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-[9999] border-b border-border bg-background/80 backdrop-blur-md">
+    <header
+      ref={headerRef}
+      className="fixed top-0 left-0 right-0 z-9999 border-b border-border bg-background/80 backdrop-blur-md"
+    >
       <div className="flex items-center justify-between px-6 py-2">
         <div className="flex items-center gap-2">
           <svg 
@@ -31,7 +71,7 @@ export function Header() {
               rel="noopener noreferrer"
               className="text-foreground hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
             >
-              Craft Docs
+              Craft
             </a>
             {' '}by{' '}
             <a 
@@ -66,4 +106,3 @@ export function Header() {
     </header>
   )
 }
-

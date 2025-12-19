@@ -40,6 +40,14 @@ const getInitialTheme = (): ThemeMode => {
   return document.documentElement.classList.contains("dark") ? "dark" : "light"
 }
 
+const getResolvedBackground = () => {
+  if (typeof document === "undefined") return null
+  const raw = getComputedStyle(document.body).getPropertyValue("background-color").trim()
+  if (!raw) return null
+  const isCssColor = /^#|^rgb|^hsl/i.test(raw)
+  return isCssColor ? raw : null
+}
+
 interface ForceGraph3DProps {
   data: GraphData
   onNodeClick?: (node: GraphNode) => void
@@ -234,7 +242,11 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     }
   }, [])
 
-  const colors = theme === "dark" ? DARK_THEME : LIGHT_THEME
+  const colors = React.useMemo(() => {
+    const base = theme === "dark" ? DARK_THEME : LIGHT_THEME
+    const resolvedBackground = getResolvedBackground()
+    return { ...base, background: resolvedBackground ?? base.background }
+  }, [theme])
 
   const getActiveNode = (): GraphNode | null => {
     return selectedNode || hoveredNode
