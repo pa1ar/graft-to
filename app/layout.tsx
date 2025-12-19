@@ -19,9 +19,32 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Graft - Craft Document Graph",
   description: "Visualize your Craft document connections as an interactive graph",
+  manifest: "/site.webmanifest",
+  themeColor: "#ffffff",
   icons: {
-    icon: "/icon.svg",
-    apple: "/apple-icon.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    other: [
+      {
+        rel: "mask-icon",
+        url: "/icon.svg",
+      },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Graft",
+  },
+  other: {
+    "msapplication-TileColor": "#ffffff",
   },
 };
 
