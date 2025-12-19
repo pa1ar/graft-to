@@ -544,31 +544,50 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
       return
     }
 
+    const controls = graphRef.current.controls()
+    if (!controls) return
+    
+    // Save the original enabled state
+    const originalEnabled = controls.enabled
+    
     let animationFrameId: number
+    let distance: number
+    let targetX: number
+    let targetY: number
+    let targetZ: number
+    let cameraY: number
+    
+    // Capture initial state once
+    const camera = graphRef.current.camera()
+    if (camera && controls.target) {
+      const target = controls.target
+      targetX = target.x
+      targetY = target.y
+      targetZ = target.z
+      
+      const dx = camera.position.x - targetX
+      const dy = camera.position.y - targetY
+      const dz = camera.position.z - targetZ
+      distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+      cameraY = camera.position.y
+    }
     
     const animate = () => {
       if (!graphRef.current) return
       
       const camera = graphRef.current.camera()
-      const controls = graphRef.current.controls()
       
-      if (!camera || !controls || !controls.target) return
+      if (!camera) return
       
-      // Get the current distance from camera to target
-      const target = controls.target
-      const dx = camera.position.x - target.x
-      const dy = camera.position.y - target.y
-      const dz = camera.position.z - target.z
-      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+      // Orbit around the fixed target point
+      const newX = targetX + distance * Math.sin(orbitAngleRef.current)
+      const newZ = targetZ + distance * Math.cos(orbitAngleRef.current)
       
-      // Orbit around the target point (not origin)
-      const newX = target.x + distance * Math.sin(orbitAngleRef.current)
-      const newZ = target.z + distance * Math.cos(orbitAngleRef.current)
-      
-      // Update camera position while maintaining Y position
+      // Update camera position while maintaining fixed Y position and distance
       camera.position.x = newX
+      camera.position.y = cameraY
       camera.position.z = newZ
-      camera.lookAt(target.x, target.y, target.z)
+      camera.lookAt(targetX, targetY, targetZ)
       
       // Increment angle based on orbit speed
       orbitAngleRef.current += (Math.PI / 300) * orbitSpeed
@@ -581,6 +600,10 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
     return () => {
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId)
+      }
+      // Restore original enabled state
+      if (controls) {
+        controls.enabled = originalEnabled
       }
     }
   }, [isOrbiting, orbitSpeed])
