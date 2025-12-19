@@ -122,6 +122,9 @@ function ConnectPanel({
   onDisconnect,
   onClearCache
 }: ConnectPanelProps) {
+  const hasAnyInput = Boolean(apiUrl || apiKey)
+  const hasUrl = Boolean(apiUrl)
+
   return (
     <form onSubmit={onConnect} className="space-y-4">
       <Accordion>
@@ -198,10 +201,11 @@ function ConnectPanel({
         {isConnecting ? "Connecting..." : "Save connection"}
       </Button>
 
-      {(apiUrl || apiKey) && (
+      {/* Always show actions; disable when not applicable (no layout shift on paste). */}
+      <div className="space-y-2">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" className="w-full" type="button">
+            <Button variant="outline" className="w-full" type="button" disabled={!hasAnyInput}>
               <IconUnlink className="mr-2 h-4 w-4" />
               Remove connection
             </Button>
@@ -216,25 +220,27 @@ function ConnectPanel({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={onDisconnect}>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={onDisconnect}
+                disabled={!hasAnyInput}
+              >
                 Remove connection
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      )}
 
-      {apiUrl && (
         <Button 
           variant="outline" 
           className="w-full" 
           type="button"
           onClick={onClearCache}
-          disabled={isConnecting || isLoading}
+          disabled={!hasUrl || isConnecting || isLoading}
         >
           Clear cache
         </Button>
-      )}
+      </div>
 
       {isLoading && (
         <div className="space-y-2 rounded-2xl bg-muted/40 p-3 text-xs">
@@ -252,7 +258,7 @@ function ConnectPanel({
           {progress.total > 0 && (
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
+                className="h-full rounded-full bg-primary transition-[width] duration-200"
                 style={{
                   width: `${Math.min(100, (progress.current / progress.total) * 100)}%`,
                 }}
@@ -740,7 +746,6 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
           // Hamburger button when collapsed
           <motion.div
             key="hamburger"
-            layoutId="sidebar-container"
             className="fixed left-4 z-40"
             style={{ top: "var(--header-offset)" }}
             initial={{ opacity: 0 }}
@@ -751,13 +756,11 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
             }}
           >
             <motion.div
-              layoutId="sidebar-card"
               className="rounded-2xl border bg-card shadow-sm"
               transition={{
-                type: "spring",
-                stiffness: 400,
-                damping: 30,
-                duration: 0.4,
+                type: "tween",
+                ease: [0.22, 1, 0.36, 1],
+                duration: 0.22,
               }}
             >
               <div className="p-2">
@@ -776,7 +779,6 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
           // Full sidebar when expanded
           <motion.div
             key="sidebar"
-            layoutId="sidebar-container"
             className="fixed left-4 right-4 z-40 w-[calc(100%-2rem)] md:right-auto md:w-[320px]"
             style={{ top: "var(--header-offset)" }}
             initial={{ opacity: 0 }}
@@ -789,13 +791,11 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
             <div className="space-y-2">
               {/* Toolbar */}
               <motion.div
-                layoutId="sidebar-card"
                 className="rounded-2xl border bg-card shadow-sm"
                 transition={{
-                  type: "spring",
-                  stiffness: 400,
-                  damping: 30,
-                  duration: 0.4,
+                  type: "tween",
+                  ease: [0.22, 1, 0.36, 1],
+                  duration: 0.22,
                 }}
               >
                 <div className="p-2">
@@ -878,10 +878,11 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
                     exit={{ opacity: 0, y: -10 }}
                     transition={{
                       duration: 0.2,
+                      // Avoid any layout interpolation during internal content updates.
                       layout: { duration: 0 }
                     }}
                   >
-                    <Card className="flex max-h-[calc(100vh-var(--header-offset)-5rem)] flex-col overflow-hidden pt-2 pb-4" style={{ willChange: 'contents' }}>
+                    <Card className="flex max-h-[calc(100vh-var(--header-offset)-5rem)] flex-col overflow-hidden pt-2 pb-4">
                       <div className="node-preview-content flex-1 overflow-y-auto overflow-x-hidden p-4">
                         {activePanel === 'connect' && (
                           <ConnectPanel

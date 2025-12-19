@@ -133,6 +133,10 @@
 .node-preview-content {
   scrollbar-width: thin;
   scrollbar-color: var(--muted-foreground) transparent;
+  /* Prevent scroll anchoring jumps when content updates (e.g. loader/progress updates). */
+  overflow-anchor: none;
+  /* Keep scrollbar gutter reserved so content doesn't reflow when scrollbars appear/disappear. */
+  scrollbar-gutter: stable;
 }
 
 .node-preview-content::-webkit-scrollbar {
