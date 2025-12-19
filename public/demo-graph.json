@@ -4,7 +4,7 @@
       "id": "723A7C91-157F-48E9-B5DD-00370CCCE32F",
       "title": "Sector 01 – Market Arcade",
       "type": "document",
-      "linkCount": 60,
+      "linkCount": 58,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=EE28AB9F-1C63-4118-B7C2-FCD86700E92E",
       "createdAt": "2025-12-16T23:53:56.663Z",
       "lastModifiedAt": "2025-12-16T23:53:56.663Z",
@@ -49,19 +49,17 @@
         "81C3A665-8ACD-483F-B7C2-74B22BBA99C3",
         "2C7BB450-243C-4501-B2AF-5E1D9C59BA6F",
         "F5F422C6-F716-4F89-9641-FFA73C42ACD7",
-        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
         "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF",
-        "61312ADB-75AF-48B5-B017-F78B86D2A35F",
         "70E079EC-B13D-4681-9B7C-43A65C8FA174",
         "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
+        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
         "F047F04B-23F9-4B2B-95FD-2F624960AE02",
-        "260246F2-9740-46B3-8043-72C7F0EC894B",
         "174E4DAF-D5EF-43A7-82B9-1CB2121ABD0C",
         "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712",
         "0C1B201B-4AE1-4807-B86B-EF7F2E0ABFC4",
+        "260246F2-9740-46B3-8043-72C7F0EC894B",
         "1B6FFD07-E888-4451-9E91-1AC26CBFAE78",
         "3A58FFD1-A774-406F-974D-E5A5AD566040",
-        "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
         "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
         "7E379751-0811-4136-AE20-B2BD03266DED",
         "E895DE3E-2AA1-45C5-928E-F74CF7849D9C",
@@ -95,20 +93,21 @@
       "id": "CED090E5-EC3E-4740-BF93-FA0B9109C052",
       "title": "Sector 04 – Neon Bazaar",
       "type": "document",
-      "linkCount": 5,
+      "linkCount": 6,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=DE049A65-8402-48F5-9664-B56973BB7892",
       "createdAt": "2025-12-16T23:53:56.664Z",
       "lastModifiedAt": "2025-12-16T23:53:56.664Z",
       "linkedFrom": [
         "034FB33F-88E0-46E4-9A22-1771DC3F95A5",
-        "BE0D09A6-6163-434B-9E63-63D151EF49DE"
+        "BE0D09A6-6163-434B-9E63-63D151EF49DE",
+        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982"
       ],
       "linksTo": [
         "723A7C91-157F-48E9-B5DD-00370CCCE32F",
         "034FB33F-88E0-46E4-9A22-1771DC3F95A5",
         "BE0D09A6-6163-434B-9E63-63D151EF49DE"
       ],
-      "color": "#34d399"
+      "color": "#fbbf24"
     },
     {
       "id": "3725D841-3123-4BD5-8538-23313A66E79E",
@@ -131,7 +130,7 @@
       "id": "8366AC55-64C7-4557-B1F5-AE373D0C9586",
       "title": "Sector 06 – Tower Courtyard",
       "type": "document",
-      "linkCount": 5,
+      "linkCount": 6,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=286E0FFE-14E3-48B4-AD19-EC1C6505792F",
       "createdAt": "2025-12-16T23:53:56.665Z",
       "lastModifiedAt": "2025-12-16T23:53:56.665Z",
@@ -142,9 +141,10 @@
       ],
       "linkedFrom": [
         "BE0D09A6-6163-434B-9E63-63D151EF49DE",
-        "C7A36519-8E5C-4864-80DB-A65162EF2D4A"
+        "C7A36519-8E5C-4864-80DB-A65162EF2D4A",
+        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982"
       ],
-      "color": "#34d399"
+      "color": "#fbbf24"
     },
     {
       "id": "751BDA85-14B1-4D7E-947E-A3115537B236",
@@ -904,14 +904,14 @@
         "7B9FEB97-42D3-4DF4-AA85-B3F5D9B96B66",
         "78E9B2B0-B8D8-4E25-900C-D995CCD01B6D",
         "E4AE6F61-9735-4885-BCE4-AE9ABB58ABC4",
-        "D2098834-F413-4811-8BB8-D4B4C6B4F349",
         "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C",
-        "6FFD014E-E382-4C3A-A550-93D435104F0E",
+        "D2098834-F413-4811-8BB8-D4B4C6B4F349",
         "D5CE4ECA-67E2-4948-851A-57CD8B76E332",
         "9C197E46-1FE0-4B78-98B9-43FA955DCABD",
         "5C9A8861-1566-418D-BC5C-D1373FEA47A4",
         "B2F9A938-8DF7-4AB3-84D3-7DFD19BE6F68",
         "1CAD12F7-856E-4022-9D53-06F39B1FAA41",
+        "6FFD014E-E382-4C3A-A550-93D435104F0E",
         "A8503D07-D27F-4F67-BB11-215BCC9E4EF7"
       ],
       "linksTo": [
@@ -1425,7 +1425,7 @@
       "lastModifiedAt": "2025-12-16T23:53:56.677Z",
       "linkedFrom": [
         "77343793-8413-460E-AB75-9DB5FF1EE69D",
-        "E4AE6F61-9735-4885-BCE4-AE9ABB58ABC4"
+        "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C"
       ],
       "linksTo": [
         "F5F422C6-F716-4F89-9641-FFA73C42ACD7",
@@ -1438,37 +1438,16 @@
       "id": "E4AE6F61-9735-4885-BCE4-AE9ABB58ABC4",
       "title": "Corporate File 032 – Genetics Lab Log",
       "type": "document",
-      "linkCount": 5,
+      "linkCount": 3,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=CCD14DF7-4AC9-4189-AB8F-DC30478E44AC",
       "createdAt": "2025-12-16T23:53:56.678Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.678Z",
+      "lastModifiedAt": "2025-12-18T23:40:23.237Z",
       "linkedFrom": [
         "78E9B2B0-B8D8-4E25-900C-D995CCD01B6D",
         "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C"
       ],
       "linksTo": [
-        "F5F422C6-F716-4F89-9641-FFA73C42ACD7",
-        "78E9B2B0-B8D8-4E25-900C-D995CCD01B6D",
-        "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C"
-      ],
-      "color": "#34d399"
-    },
-    {
-      "id": "D2098834-F413-4811-8BB8-D4B4C6B4F349",
-      "title": "Corporate File 034 – Off-World Contract",
-      "type": "document",
-      "linkCount": 5,
-      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=4B439BD8-5A9D-49A0-8D2A-D2B997A408BF",
-      "createdAt": "2025-12-16T23:53:56.678Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.678Z",
-      "linksTo": [
-        "F5F422C6-F716-4F89-9641-FFA73C42ACD7",
-        "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C",
-        "6FFD014E-E382-4C3A-A550-93D435104F0E"
-      ],
-      "linkedFrom": [
-        "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C",
-        "6FFD014E-E382-4C3A-A550-93D435104F0E"
+        "F5F422C6-F716-4F89-9641-FFA73C42ACD7"
       ],
       "color": "#34d399"
     },
@@ -1479,34 +1458,32 @@
       "linkCount": 5,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=CDE0493A-EE0B-47D7-95DC-AC3DF0588624",
       "createdAt": "2025-12-16T23:53:56.678Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.678Z",
-      "linkedFrom": [
-        "E4AE6F61-9735-4885-BCE4-AE9ABB58ABC4",
-        "D2098834-F413-4811-8BB8-D4B4C6B4F349"
-      ],
+      "lastModifiedAt": "2025-12-18T23:40:30.583Z",
       "linksTo": [
         "F5F422C6-F716-4F89-9641-FFA73C42ACD7",
         "E4AE6F61-9735-4885-BCE4-AE9ABB58ABC4",
-        "D2098834-F413-4811-8BB8-D4B4C6B4F349"
+        "D2098834-F413-4811-8BB8-D4B4C6B4F349",
+        "78E9B2B0-B8D8-4E25-900C-D995CCD01B6D"
+      ],
+      "linkedFrom": [
+        "6FFD014E-E382-4C3A-A550-93D435104F0E"
       ],
       "color": "#34d399"
     },
     {
-      "id": "6FFD014E-E382-4C3A-A550-93D435104F0E",
-      "title": "Corporate File 035 – Personnel File",
+      "id": "D2098834-F413-4811-8BB8-D4B4C6B4F349",
+      "title": "Corporate File 034 – Off-World Contract",
       "type": "document",
-      "linkCount": 5,
-      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=F193C7A4-8BE2-4BC4-ACBA-C1481D2B2659",
-      "createdAt": "2025-12-16T23:53:56.679Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.679Z",
+      "linkCount": 3,
+      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=4B439BD8-5A9D-49A0-8D2A-D2B997A408BF",
+      "createdAt": "2025-12-16T23:53:56.678Z",
+      "lastModifiedAt": "2025-12-18T23:40:43.559Z",
       "linkedFrom": [
-        "D2098834-F413-4811-8BB8-D4B4C6B4F349",
-        "1CAD12F7-856E-4022-9D53-06F39B1FAA41"
+        "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C",
+        "6FFD014E-E382-4C3A-A550-93D435104F0E"
       ],
       "linksTo": [
-        "F5F422C6-F716-4F89-9641-FFA73C42ACD7",
-        "D2098834-F413-4811-8BB8-D4B4C6B4F349",
-        "1CAD12F7-856E-4022-9D53-06F39B1FAA41"
+        "F5F422C6-F716-4F89-9641-FFA73C42ACD7"
       ],
       "color": "#34d399"
     },
@@ -1594,8 +1571,8 @@
       "createdAt": "2025-12-16T23:53:56.679Z",
       "lastModifiedAt": "2025-12-16T23:53:56.679Z",
       "linkedFrom": [
-        "6FFD014E-E382-4C3A-A550-93D435104F0E",
-        "D5CE4ECA-67E2-4948-851A-57CD8B76E332"
+        "D5CE4ECA-67E2-4948-851A-57CD8B76E332",
+        "6FFD014E-E382-4C3A-A550-93D435104F0E"
       ],
       "linksTo": [
         "F5F422C6-F716-4F89-9641-FFA73C42ACD7",
@@ -1605,24 +1582,23 @@
       "color": "#34d399"
     },
     {
-      "id": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
-      "title": "Replicant Case 003 – Baseline Checklist",
+      "id": "6FFD014E-E382-4C3A-A550-93D435104F0E",
+      "title": "Corporate File 035 – Personnel File",
       "type": "document",
-      "linkCount": 6,
-      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=1D94335A-5227-4CE9-B137-3B694ED011D7",
-      "createdAt": "2025-12-16T23:53:56.680Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.680Z",
-      "linksTo": [
-        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
-        "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF",
-        "61312ADB-75AF-48B5-B017-F78B86D2A35F",
-        "723A7C91-157F-48E9-B5DD-00370CCCE32F"
-      ],
+      "linkCount": 5,
+      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=F193C7A4-8BE2-4BC4-ACBA-C1481D2B2659",
+      "createdAt": "2025-12-16T23:53:56.679Z",
+      "lastModifiedAt": "2025-12-18T23:40:50.483Z",
       "linkedFrom": [
-        "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF",
-        "61312ADB-75AF-48B5-B017-F78B86D2A35F"
+        "1CAD12F7-856E-4022-9D53-06F39B1FAA41"
       ],
-      "color": "#fbbf24"
+      "linksTo": [
+        "F5F422C6-F716-4F89-9641-FFA73C42ACD7",
+        "D2098834-F413-4811-8BB8-D4B4C6B4F349",
+        "1CAD12F7-856E-4022-9D53-06F39B1FAA41",
+        "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C"
+      ],
+      "color": "#34d399"
     },
     {
       "id": "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF",
@@ -1632,55 +1608,34 @@
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=51EB6659-5BF5-421C-A068-6DCDCCB34B1B",
       "createdAt": "2025-12-16T23:53:56.680Z",
       "lastModifiedAt": "2025-12-16T23:53:56.680Z",
+      "linksTo": [
+        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
+        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
+        "723A7C91-157F-48E9-B5DD-00370CCCE32F"
+      ],
       "linkedFrom": [
         "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982"
       ],
-      "linksTo": [
-        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
-        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
-        "723A7C91-157F-48E9-B5DD-00370CCCE32F"
-      ],
       "color": "#34d399"
-    },
-    {
-      "id": "61312ADB-75AF-48B5-B017-F78B86D2A35F",
-      "title": "Replicant Case 004 – Decommission Record",
-      "type": "document",
-      "linkCount": 6,
-      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=8E1EAD52-EC22-4619-B1B1-36D4184D98A7",
-      "createdAt": "2025-12-16T23:53:56.680Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.680Z",
-      "linkedFrom": [
-        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
-        "70E079EC-B13D-4681-9B7C-43A65C8FA174"
-      ],
-      "linksTo": [
-        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
-        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
-        "70E079EC-B13D-4681-9B7C-43A65C8FA174",
-        "723A7C91-157F-48E9-B5DD-00370CCCE32F"
-      ],
-      "color": "#fbbf24"
     },
     {
       "id": "70E079EC-B13D-4681-9B7C-43A65C8FA174",
       "title": "Replicant Case 005 – Stress Test",
       "type": "document",
-      "linkCount": 6,
+      "linkCount": 5,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=C836CF72-1A56-4960-B62A-FF69327C2FA1",
       "createdAt": "2025-12-16T23:53:56.680Z",
       "lastModifiedAt": "2025-12-16T23:53:56.681Z",
-      "linkedFrom": [
-        "61312ADB-75AF-48B5-B017-F78B86D2A35F",
-        "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712"
-      ],
       "linksTo": [
         "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
         "61312ADB-75AF-48B5-B017-F78B86D2A35F",
         "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712",
         "723A7C91-157F-48E9-B5DD-00370CCCE32F"
       ],
-      "color": "#fbbf24"
+      "linkedFrom": [
+        "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712"
+      ],
+      "color": "#34d399"
     },
     {
       "id": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
@@ -1691,19 +1646,19 @@
       "createdAt": "2025-12-16T23:53:56.680Z",
       "lastModifiedAt": "2025-12-16T23:53:56.680Z",
       "linkedFrom": [
-        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
         "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF",
-        "61312ADB-75AF-48B5-B017-F78B86D2A35F",
         "70E079EC-B13D-4681-9B7C-43A65C8FA174",
+        "61312ADB-75AF-48B5-B017-F78B86D2A35F",
+        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
         "F047F04B-23F9-4B2B-95FD-2F624960AE02",
-        "260246F2-9740-46B3-8043-72C7F0EC894B",
         "174E4DAF-D5EF-43A7-82B9-1CB2121ABD0C",
         "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712",
         "0C1B201B-4AE1-4807-B86B-EF7F2E0ABFC4",
+        "260246F2-9740-46B3-8043-72C7F0EC894B",
         "1B6FFD07-E888-4451-9E91-1AC26CBFAE78",
         "3A58FFD1-A774-406F-974D-E5A5AD566040",
-        "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
         "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
+        "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
         "7E379751-0811-4136-AE20-B2BD03266DED",
         "E895DE3E-2AA1-45C5-928E-F74CF7849D9C",
         "A8503D07-D27F-4F67-BB11-215BCC9E4EF7",
@@ -1717,10 +1672,48 @@
       "color": "#f87171"
     },
     {
+      "id": "61312ADB-75AF-48B5-B017-F78B86D2A35F",
+      "title": "Replicant Case 004 – Decommission Record",
+      "type": "document",
+      "linkCount": 3,
+      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=8E1EAD52-EC22-4619-B1B1-36D4184D98A7",
+      "createdAt": "2025-12-16T23:53:56.680Z",
+      "lastModifiedAt": "2025-12-18T23:38:56.507Z",
+      "linkedFrom": [
+        "70E079EC-B13D-4681-9B7C-43A65C8FA174",
+        "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982"
+      ],
+      "linksTo": [
+        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
+      ],
+      "color": "#34d399"
+    },
+    {
+      "id": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
+      "title": "Replicant Case 003 – Baseline Checklist",
+      "type": "document",
+      "linkCount": 7,
+      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=1D94335A-5227-4CE9-B137-3B694ED011D7",
+      "createdAt": "2025-12-16T23:53:56.680Z",
+      "lastModifiedAt": "2025-12-18T23:39:40.892Z",
+      "linkedFrom": [
+        "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF"
+      ],
+      "linksTo": [
+        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
+        "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF",
+        "61312ADB-75AF-48B5-B017-F78B86D2A35F",
+        "723A7C91-157F-48E9-B5DD-00370CCCE32F",
+        "CED090E5-EC3E-4740-BF93-FA0B9109C052",
+        "8366AC55-64C7-4557-B1F5-AE373D0C9586"
+      ],
+      "color": "#fbbf24"
+    },
+    {
       "id": "F047F04B-23F9-4B2B-95FD-2F624960AE02",
       "title": "Replicant Case 009 – Serial Audit",
       "type": "document",
-      "linkCount": 6,
+      "linkCount": 5,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=1FC89C4C-25CA-4CC0-848D-77820D19293D",
       "createdAt": "2025-12-16T23:53:56.681Z",
       "lastModifiedAt": "2025-12-16T23:53:56.681Z",
@@ -1731,42 +1724,20 @@
         "723A7C91-157F-48E9-B5DD-00370CCCE32F"
       ],
       "linkedFrom": [
-        "174E4DAF-D5EF-43A7-82B9-1CB2121ABD0C",
-        "0C1B201B-4AE1-4807-B86B-EF7F2E0ABFC4"
+        "174E4DAF-D5EF-43A7-82B9-1CB2121ABD0C"
       ],
-      "color": "#fbbf24"
-    },
-    {
-      "id": "260246F2-9740-46B3-8043-72C7F0EC894B",
-      "title": "Replicant Case 007 – Observation Log",
-      "type": "document",
-      "linkCount": 6,
-      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=25C8D7EF-545A-46B9-A8E8-B68236575337",
-      "createdAt": "2025-12-16T23:53:56.681Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.681Z",
-      "linksTo": [
-        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
-        "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712",
-        "174E4DAF-D5EF-43A7-82B9-1CB2121ABD0C",
-        "723A7C91-157F-48E9-B5DD-00370CCCE32F"
-      ],
-      "linkedFrom": [
-        "174E4DAF-D5EF-43A7-82B9-1CB2121ABD0C",
-        "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712"
-      ],
-      "color": "#fbbf24"
+      "color": "#34d399"
     },
     {
       "id": "174E4DAF-D5EF-43A7-82B9-1CB2121ABD0C",
       "title": "Replicant Case 008 – Empathy Anomaly",
       "type": "document",
-      "linkCount": 6,
+      "linkCount": 5,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=21D15FBF-885C-4B2F-9859-12B2C1AAD83C",
       "createdAt": "2025-12-16T23:53:56.681Z",
       "lastModifiedAt": "2025-12-16T23:53:56.681Z",
       "linkedFrom": [
-        "F047F04B-23F9-4B2B-95FD-2F624960AE02",
-        "260246F2-9740-46B3-8043-72C7F0EC894B"
+        "F047F04B-23F9-4B2B-95FD-2F624960AE02"
       ],
       "linksTo": [
         "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
@@ -1774,19 +1745,18 @@
         "F047F04B-23F9-4B2B-95FD-2F624960AE02",
         "723A7C91-157F-48E9-B5DD-00370CCCE32F"
       ],
-      "color": "#fbbf24"
+      "color": "#34d399"
     },
     {
       "id": "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712",
       "title": "Replicant Case 006 – Escape Rumor",
       "type": "document",
-      "linkCount": 6,
+      "linkCount": 5,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=105A4D8B-9B52-491E-BC24-D31C2A699070",
       "createdAt": "2025-12-16T23:53:56.681Z",
       "lastModifiedAt": "2025-12-16T23:53:56.681Z",
       "linkedFrom": [
-        "70E079EC-B13D-4681-9B7C-43A65C8FA174",
-        "260246F2-9740-46B3-8043-72C7F0EC894B"
+        "70E079EC-B13D-4681-9B7C-43A65C8FA174"
       ],
       "linksTo": [
         "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
@@ -1794,53 +1764,68 @@
         "260246F2-9740-46B3-8043-72C7F0EC894B",
         "723A7C91-157F-48E9-B5DD-00370CCCE32F"
       ],
-      "color": "#fbbf24"
+      "color": "#34d399"
     },
     {
       "id": "0C1B201B-4AE1-4807-B86B-EF7F2E0ABFC4",
       "title": "Replicant Case 010 – Field Performance",
       "type": "document",
-      "linkCount": 6,
+      "linkCount": 4,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=2FB54AF6-A65C-4F6C-9DD0-A9B756B3E066",
       "createdAt": "2025-12-16T23:53:56.681Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.682Z",
+      "lastModifiedAt": "2025-12-18T23:38:34.605Z",
       "linkedFrom": [
         "F047F04B-23F9-4B2B-95FD-2F624960AE02",
         "1B6FFD07-E888-4451-9E91-1AC26CBFAE78"
       ],
       "linksTo": [
         "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
-        "F047F04B-23F9-4B2B-95FD-2F624960AE02",
-        "1B6FFD07-E888-4451-9E91-1AC26CBFAE78",
         "723A7C91-157F-48E9-B5DD-00370CCCE32F"
       ],
-      "color": "#fbbf24"
+      "color": "#34d399"
+    },
+    {
+      "id": "260246F2-9740-46B3-8043-72C7F0EC894B",
+      "title": "Replicant Case 007 – Observation Log",
+      "type": "document",
+      "linkCount": 4,
+      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=25C8D7EF-545A-46B9-A8E8-B68236575337",
+      "createdAt": "2025-12-16T23:53:56.681Z",
+      "lastModifiedAt": "2025-12-18T23:38:51.819Z",
+      "linkedFrom": [
+        "174E4DAF-D5EF-43A7-82B9-1CB2121ABD0C",
+        "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712"
+      ],
+      "linksTo": [
+        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
+        "723A7C91-157F-48E9-B5DD-00370CCCE32F"
+      ],
+      "color": "#34d399"
     },
     {
       "id": "1B6FFD07-E888-4451-9E91-1AC26CBFAE78",
       "title": "Replicant Case 011 – Memory Imprint Note",
       "type": "document",
-      "linkCount": 6,
+      "linkCount": 5,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=7BF8E819-3479-4E55-BD8A-10BDDED84CB4",
       "createdAt": "2025-12-16T23:53:56.682Z",
       "lastModifiedAt": "2025-12-16T23:53:56.682Z",
-      "linkedFrom": [
-        "0C1B201B-4AE1-4807-B86B-EF7F2E0ABFC4",
-        "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD"
-      ],
       "linksTo": [
         "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
         "0C1B201B-4AE1-4807-B86B-EF7F2E0ABFC4",
         "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
         "723A7C91-157F-48E9-B5DD-00370CCCE32F"
       ],
-      "color": "#fbbf24"
+      "linkedFrom": [
+        "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD"
+      ],
+      "color": "#34d399"
     },
     {
       "id": "3A58FFD1-A774-406F-974D-E5A5AD566040",
       "title": "Replicant Case 013 – Baseline Checklist",
       "type": "document",
-      "linkCount": 6,
+      "linkCount": 4,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=A0C73A0A-6EF7-4F4A-AFA1-BD214F23F829",
       "createdAt": "2025-12-16T23:53:56.682Z",
       "lastModifiedAt": "2025-12-16T23:53:56.682Z",
@@ -1850,51 +1835,43 @@
         "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
         "723A7C91-157F-48E9-B5DD-00370CCCE32F"
       ],
-      "linkedFrom": [
-        "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
-        "DEA51575-4A62-4C59-A90A-B23B99EEDA0B"
-      ],
-      "color": "#fbbf24"
-    },
-    {
-      "id": "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
-      "title": "Replicant Case 012 – Behavioral Drift",
-      "type": "document",
-      "linkCount": 6,
-      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=0869D015-222B-4172-B643-12F08A825C0E",
-      "createdAt": "2025-12-16T23:53:56.682Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.682Z",
-      "linkedFrom": [
-        "1B6FFD07-E888-4451-9E91-1AC26CBFAE78",
-        "3A58FFD1-A774-406F-974D-E5A5AD566040"
-      ],
-      "linksTo": [
-        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
-        "1B6FFD07-E888-4451-9E91-1AC26CBFAE78",
-        "3A58FFD1-A774-406F-974D-E5A5AD566040",
-        "723A7C91-157F-48E9-B5DD-00370CCCE32F"
-      ],
-      "color": "#fbbf24"
+      "color": "#34d399"
     },
     {
       "id": "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
       "title": "Replicant Case 014 – Decommission Record",
       "type": "document",
-      "linkCount": 6,
+      "linkCount": 4,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=9DA795C5-61C4-4E63-B227-A568F598508D",
       "createdAt": "2025-12-16T23:53:56.682Z",
-      "lastModifiedAt": "2025-12-16T23:53:56.683Z",
+      "lastModifiedAt": "2025-12-18T23:38:40.296Z",
       "linkedFrom": [
         "3A58FFD1-A774-406F-974D-E5A5AD566040",
         "A8503D07-D27F-4F67-BB11-215BCC9E4EF7"
       ],
       "linksTo": [
         "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
-        "3A58FFD1-A774-406F-974D-E5A5AD566040",
-        "A8503D07-D27F-4F67-BB11-215BCC9E4EF7",
         "723A7C91-157F-48E9-B5DD-00370CCCE32F"
       ],
-      "color": "#fbbf24"
+      "color": "#34d399"
+    },
+    {
+      "id": "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
+      "title": "Replicant Case 012 – Behavioral Drift",
+      "type": "document",
+      "linkCount": 4,
+      "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=0869D015-222B-4172-B643-12F08A825C0E",
+      "createdAt": "2025-12-16T23:53:56.682Z",
+      "lastModifiedAt": "2025-12-18T23:38:46.356Z",
+      "linkedFrom": [
+        "1B6FFD07-E888-4451-9E91-1AC26CBFAE78",
+        "3A58FFD1-A774-406F-974D-E5A5AD566040"
+      ],
+      "linksTo": [
+        "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C",
+        "1B6FFD07-E888-4451-9E91-1AC26CBFAE78"
+      ],
+      "color": "#34d399"
     },
     {
       "id": "7E379751-0811-4136-AE20-B2BD03266DED",
@@ -1940,13 +1917,12 @@
       "id": "A8503D07-D27F-4F67-BB11-215BCC9E4EF7",
       "title": "Replicant Case 015 – Stress Test",
       "type": "document",
-      "linkCount": 10,
+      "linkCount": 9,
       "clickableLink": "craftdocs://open?spaceId=116da254-ed35-0126-a251-d72240524aaa&documentId=A74D1E00-83F0-4F1A-B8EF-6D79778B9536",
       "createdAt": "2025-12-16T23:53:56.683Z",
       "lastModifiedAt": "2025-12-18T15:46:56.085Z",
       "linkedFrom": [
         "27F93CF3-B09E-4C8E-9092-D5F873EA4B4D",
-        "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
         "E895DE3E-2AA1-45C5-928E-F74CF7849D9C"
       ],
       "linksTo": [
@@ -2849,26 +2825,6 @@
       "target": "F5F422C6-F716-4F89-9641-FFA73C42ACD7"
     },
     {
-      "source": "E4AE6F61-9735-4885-BCE4-AE9ABB58ABC4",
-      "target": "78E9B2B0-B8D8-4E25-900C-D995CCD01B6D"
-    },
-    {
-      "source": "E4AE6F61-9735-4885-BCE4-AE9ABB58ABC4",
-      "target": "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C"
-    },
-    {
-      "source": "D2098834-F413-4811-8BB8-D4B4C6B4F349",
-      "target": "F5F422C6-F716-4F89-9641-FFA73C42ACD7"
-    },
-    {
-      "source": "D2098834-F413-4811-8BB8-D4B4C6B4F349",
-      "target": "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C"
-    },
-    {
-      "source": "D2098834-F413-4811-8BB8-D4B4C6B4F349",
-      "target": "6FFD014E-E382-4C3A-A550-93D435104F0E"
-    },
-    {
       "source": "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C",
       "target": "F5F422C6-F716-4F89-9641-FFA73C42ACD7"
     },
@@ -2881,16 +2837,12 @@
       "target": "D2098834-F413-4811-8BB8-D4B4C6B4F349"
     },
     {
-      "source": "6FFD014E-E382-4C3A-A550-93D435104F0E",
+      "source": "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C",
+      "target": "78E9B2B0-B8D8-4E25-900C-D995CCD01B6D"
+    },
+    {
+      "source": "D2098834-F413-4811-8BB8-D4B4C6B4F349",
       "target": "F5F422C6-F716-4F89-9641-FFA73C42ACD7"
-    },
-    {
-      "source": "6FFD014E-E382-4C3A-A550-93D435104F0E",
-      "target": "D2098834-F413-4811-8BB8-D4B4C6B4F349"
-    },
-    {
-      "source": "6FFD014E-E382-4C3A-A550-93D435104F0E",
-      "target": "1CAD12F7-856E-4022-9D53-06F39B1FAA41"
     },
     {
       "source": "D5CE4ECA-67E2-4948-851A-57CD8B76E332",
@@ -2949,20 +2901,20 @@
       "target": "D5CE4ECA-67E2-4948-851A-57CD8B76E332"
     },
     {
-      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
-      "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
+      "source": "6FFD014E-E382-4C3A-A550-93D435104F0E",
+      "target": "F5F422C6-F716-4F89-9641-FFA73C42ACD7"
     },
     {
-      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
-      "target": "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF"
+      "source": "6FFD014E-E382-4C3A-A550-93D435104F0E",
+      "target": "D2098834-F413-4811-8BB8-D4B4C6B4F349"
     },
     {
-      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
-      "target": "61312ADB-75AF-48B5-B017-F78B86D2A35F"
+      "source": "6FFD014E-E382-4C3A-A550-93D435104F0E",
+      "target": "1CAD12F7-856E-4022-9D53-06F39B1FAA41"
     },
     {
-      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
-      "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
+      "source": "6FFD014E-E382-4C3A-A550-93D435104F0E",
+      "target": "AEE4F43B-7CEB-4FB8-871D-7D1F1D07498C"
     },
     {
       "source": "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF",
@@ -2974,22 +2926,6 @@
     },
     {
       "source": "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF",
-      "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
-    },
-    {
-      "source": "61312ADB-75AF-48B5-B017-F78B86D2A35F",
-      "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
-    },
-    {
-      "source": "61312ADB-75AF-48B5-B017-F78B86D2A35F",
-      "target": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982"
-    },
-    {
-      "source": "61312ADB-75AF-48B5-B017-F78B86D2A35F",
-      "target": "70E079EC-B13D-4681-9B7C-43A65C8FA174"
-    },
-    {
-      "source": "61312ADB-75AF-48B5-B017-F78B86D2A35F",
       "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
     },
     {
@@ -3013,6 +2949,34 @@
       "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
     },
     {
+      "source": "61312ADB-75AF-48B5-B017-F78B86D2A35F",
+      "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
+    },
+    {
+      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
+      "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
+    },
+    {
+      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
+      "target": "A6C6712D-E788-442F-A3FA-14D9F7FB2CCF"
+    },
+    {
+      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
+      "target": "61312ADB-75AF-48B5-B017-F78B86D2A35F"
+    },
+    {
+      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
+      "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
+    },
+    {
+      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
+      "target": "CED090E5-EC3E-4740-BF93-FA0B9109C052"
+    },
+    {
+      "source": "A22E7BD1-4B3A-4AC1-8285-BC9EC1D8A982",
+      "target": "8366AC55-64C7-4557-B1F5-AE373D0C9586"
+    },
+    {
       "source": "F047F04B-23F9-4B2B-95FD-2F624960AE02",
       "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
     },
@@ -3026,22 +2990,6 @@
     },
     {
       "source": "F047F04B-23F9-4B2B-95FD-2F624960AE02",
-      "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
-    },
-    {
-      "source": "260246F2-9740-46B3-8043-72C7F0EC894B",
-      "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
-    },
-    {
-      "source": "260246F2-9740-46B3-8043-72C7F0EC894B",
-      "target": "46AA94F7-A9F1-48CE-BF43-C2F1C7C09712"
-    },
-    {
-      "source": "260246F2-9740-46B3-8043-72C7F0EC894B",
-      "target": "174E4DAF-D5EF-43A7-82B9-1CB2121ABD0C"
-    },
-    {
-      "source": "260246F2-9740-46B3-8043-72C7F0EC894B",
       "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
     },
     {
@@ -3082,14 +3030,14 @@
     },
     {
       "source": "0C1B201B-4AE1-4807-B86B-EF7F2E0ABFC4",
-      "target": "F047F04B-23F9-4B2B-95FD-2F624960AE02"
+      "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
     },
     {
-      "source": "0C1B201B-4AE1-4807-B86B-EF7F2E0ABFC4",
-      "target": "1B6FFD07-E888-4451-9E91-1AC26CBFAE78"
+      "source": "260246F2-9740-46B3-8043-72C7F0EC894B",
+      "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
     },
     {
-      "source": "0C1B201B-4AE1-4807-B86B-EF7F2E0ABFC4",
+      "source": "260246F2-9740-46B3-8043-72C7F0EC894B",
       "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
     },
     {
@@ -3125,36 +3073,20 @@
       "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
     },
     {
+      "source": "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
+      "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
+    },
+    {
+      "source": "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
+      "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
+    },
+    {
       "source": "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
       "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
     },
     {
       "source": "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
       "target": "1B6FFD07-E888-4451-9E91-1AC26CBFAE78"
-    },
-    {
-      "source": "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
-      "target": "3A58FFD1-A774-406F-974D-E5A5AD566040"
-    },
-    {
-      "source": "8EE9EB1F-61A7-42E4-84D4-C81418AF7ACD",
-      "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
-    },
-    {
-      "source": "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
-      "target": "F7DE0AF7-91B1-4C59-8AB9-AB9BFEBFE50C"
-    },
-    {
-      "source": "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
-      "target": "3A58FFD1-A774-406F-974D-E5A5AD566040"
-    },
-    {
-      "source": "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
-      "target": "A8503D07-D27F-4F67-BB11-215BCC9E4EF7"
-    },
-    {
-      "source": "DEA51575-4A62-4C59-A90A-B23B99EEDA0B",
-      "target": "723A7C91-157F-48E9-B5DD-00370CCCE32F"
     },
     {
       "source": "7E379751-0811-4136-AE20-B2BD03266DED",

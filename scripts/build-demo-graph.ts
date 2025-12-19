@@ -3,8 +3,8 @@
  * Run with: bun scripts/build-demo-graph.ts
  */
 
-const API_URL = 'https://connect.craft.do/links/15Lpq8eBV9s/api/v1';
-const API_KEY = 'pdk_c3afcd81-def7-6fbc-a784-f31686f5aa5a';
+const API_URL = process.env.API_URL;
+const API_KEY = process.env.API_KEY;
 
 interface CraftDocument {
   id: string;
