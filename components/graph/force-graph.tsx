@@ -55,6 +55,7 @@ interface ForceGraphProps {
   selectedNode?: GraphNode | null
   width?: number
   height?: number
+  showLabels?: boolean
 }
 
 // Stable internal graph data that persists node positions
@@ -63,7 +64,7 @@ interface InternalGraphData {
   links: GraphLink[]
 }
 
-export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode, width, height }: ForceGraphProps) {
+export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, showLabels = false }: ForceGraphProps) {
   const graphRef = React.useRef<any>(null)
   const [theme, setTheme] = React.useState<ThemeMode>(() => getInitialTheme())
   const [hoveredNode, setHoveredNode] = React.useState<GraphNode | null>(null)
@@ -322,16 +323,13 @@ export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode,
     return 1
   }
 
-  // Draw labels based on zoom level
+  // Draw labels based on showLabels prop
   const drawNodeLabel = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    // Show labels when zoomed in (zoom > 1.5)
-    const minZoomForLabels = 1.5
-    if (globalScale < minZoomForLabels) return
+    // Only show labels if showLabels is enabled
+    if (!showLabels) return
 
-    // Calculate opacity based on zoom level for smooth fade-in
-    let opacity = Math.min(1, (globalScale - minZoomForLabels) / 0.5)
-    
-    // Mute label opacity for nodes not connected to active node
+    // Calculate opacity - mute label opacity for nodes not connected to active node
+    let opacity = 1
     const activeNode = getActiveNode()
     if (activeNode && !isNodeConnected(node.id)) {
       opacity *= muteOpacity
@@ -343,7 +341,7 @@ export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode,
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     
-    // Draw text with fade-in opacity
+    // Draw text with opacity
     ctx.fillStyle = `rgba(${theme === 'dark' ? '229, 231, 235' : '31, 41, 55'}, ${opacity})`
     ctx.fillText(label, node.x, node.y + 12)
   }
@@ -377,7 +375,7 @@ export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode,
           zoomUpdateFrameRef.current = null
         })
       }}
-      nodeCanvasObject={drawNodeLabel}
+      nodeCanvasObject={showLabels ? drawNodeLabel : undefined}
       nodeCanvasObjectMode={() => 'after'}
       backgroundColor={colors.background}
       cooldownTicks={100}

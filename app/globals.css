@@ -212,6 +212,19 @@
   }
 }
 
+/* Responsive sidebar panel */
+@media (max-height: 600px) {
+  .max-h-\[calc\(100vh-var\(--header-offset\)-5rem\)\] {
+    max-height: calc(100vh - var(--header-offset) - 3rem);
+  }
+}
+
+@media (max-height: 400px) {
+  .max-h-\[calc\(100vh-var\(--header-offset\)-5rem\)\] {
+    max-height: calc(100vh - var(--header-offset) - 1rem);
+  }
+}
+
 /* New Year mode star glow animation */
 @keyframes star-glow {
   from {

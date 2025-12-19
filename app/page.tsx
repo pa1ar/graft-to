@@ -20,6 +20,8 @@ export default function Page() {
   const [is3D, setIs3D] = React.useState(false)
   const [isOrbiting, setIsOrbiting] = React.useState(false)
   const [orbitSpeed, setOrbitSpeed] = React.useState(1)
+  const [bloomMode, setBloomMode] = React.useState(false)
+  const [showLabels, setShowLabels] = React.useState(false)
 
   const getHeaderHeight = React.useCallback(() => {
     if (typeof document === "undefined") return HEADER_FALLBACK
@@ -46,12 +48,17 @@ export default function Page() {
     }
   }, [getHeaderHeight])
 
-  // Disable orbit when switching to 2D mode
+  // Disable orbit and bloom mode when switching to 2D mode
   React.useEffect(() => {
-    if (!is3D && isOrbiting) {
-      setIsOrbiting(false)
+    if (!is3D) {
+      if (isOrbiting) {
+        setIsOrbiting(false)
+      }
+      if (bloomMode) {
+        setBloomMode(false)
+      }
     }
-  }, [is3D, isOrbiting])
+  }, [is3D, isOrbiting, bloomMode])
 
   const handleNodeSelect = React.useCallback((nodeId: string) => {
     if (!graphData) return
@@ -78,6 +85,10 @@ export default function Page() {
         orbitSpeed={orbitSpeed}
         onOrbitSpeedChange={setOrbitSpeed}
         onNodeSelect={handleNodeSelect}
+        bloomMode={bloomMode}
+        onBloomModeChange={setBloomMode}
+        showLabels={showLabels}
+        onShowLabelsChange={setShowLabels}
       />
       
       {is3D ? (
@@ -90,6 +101,8 @@ export default function Page() {
           height={dimensions.height}
           isOrbiting={isOrbiting}
           orbitSpeed={orbitSpeed}
+          bloomMode={bloomMode}
+          showLabels={showLabels}
         />
       ) : (
         <ForceGraph
@@ -99,6 +112,7 @@ export default function Page() {
           selectedNode={selectedNode}
           width={dimensions.width}
           height={dimensions.height}
+          showLabels={showLabels}
         />
       )}
 

@@ -15,7 +15,12 @@ import {
   IconAdjustments,
   IconBox,
   IconSquare,
-  IconRotate360
+  IconRotate360,
+  IconSparkles,
+  IconTag,
+  IconCircle,
+  IconPoint,
+  IconEyeOff
 } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
@@ -66,6 +71,10 @@ interface GraphControlsProps {
   orbitSpeed?: number
   onOrbitSpeedChange?: (speed: number) => void
   onNodeSelect?: (nodeId: string) => void
+  bloomMode?: boolean
+  onBloomModeChange?: (bloomMode: boolean) => void
+  showLabels?: boolean
+  onShowLabelsChange?: (showLabels: boolean) => void
 }
 
 type PanelType = 'connect' | 'stats' | 'search' | 'customize' | null
@@ -304,7 +313,7 @@ function SearchPanel({ graphData, onNodeSelect }: SearchPanelProps) {
             Results ({searchResults.length})
           </p>
           {searchResults.length > 0 ? (
-            <div className="max-h-64 space-y-2 overflow-y-auto">
+            <div className="space-y-2">
               {searchResults.map((node) => (
                 <div
                   key={node.id}
@@ -331,13 +340,17 @@ interface CustomizePanelProps {
   is3DMode: boolean
   isOrbiting: boolean
   orbitSpeed: number
+  bloomMode: boolean
+  showLabels: boolean
   onThemeChange: (isDark: boolean) => void
   on3DModeChange: (is3D: boolean) => void
   onOrbitingChange: (isOrbiting: boolean) => void
   onOrbitSpeedChange: (speed: number) => void
+  onBloomModeChange: (bloomMode: boolean) => void
+  onShowLabelsChange: (showLabels: boolean) => void
 }
 
-function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, onThemeChange, on3DModeChange, onOrbitingChange, onOrbitSpeedChange }: CustomizePanelProps) {
+function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, bloomMode, showLabels, onThemeChange, on3DModeChange, onOrbitingChange, onOrbitSpeedChange, onBloomModeChange, onShowLabelsChange }: CustomizePanelProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -366,6 +379,47 @@ function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, onThemeC
           >
             <IconMoon className="h-5 w-5" />
             <span className="text-xs font-medium">Dark</span>
+          </button>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">Labels</p>
+          {bloomMode && (
+            <span className="text-xs text-muted-foreground">Bloom disables</span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onShowLabelsChange(false)}
+            disabled={bloomMode}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              bloomMode
+                ? 'cursor-not-allowed opacity-40'
+                : !showLabels 
+                  ? 'border-primary text-primary' 
+                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconEyeOff className="h-5 w-5" />
+            <span className="text-xs font-medium">Hidden</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onShowLabelsChange(true)}
+            disabled={bloomMode}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              bloomMode
+                ? 'cursor-not-allowed opacity-40'
+                : showLabels 
+                  ? 'border-primary text-primary' 
+                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconTag className="h-5 w-5" />
+            <span className="text-xs font-medium">Show</span>
           </button>
         </div>
       </div>
@@ -400,59 +454,108 @@ function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, onThemeC
         </div>
       </div>
       
-      {is3DMode && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Camera</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => onOrbitingChange(false)}
-              className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
-                !isOrbiting 
-                  ? 'border-primary text-primary' 
-                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
-              }`}
-            >
-              <IconSquare className="h-5 w-5" />
-              <span className="text-xs font-medium">Static</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onOrbitingChange(true)}
-              className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
-                isOrbiting 
-                  ? 'border-primary text-primary' 
-                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
-              }`}
-            >
-              <IconRotate360 className="h-5 w-5" />
-              <span className="text-xs font-medium">Orbit</span>
-            </button>
-          </div>
-          
-          {isOrbiting && (
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">Speed</p>
-                <span className="text-xs text-muted-foreground">{orbitSpeed.toFixed(1)}x</span>
-              </div>
-              <Slider
-                value={[orbitSpeed]}
-                onValueChange={(values) => onOrbitSpeedChange(values[0])}
-                min={0.1}
-                max={2}
-                step={0.1}
-                className="w-full"
-              />
-            </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">Bloom Mode</p>
+          {!is3DMode && (
+            <span className="text-xs text-muted-foreground">3D only</span>
           )}
         </div>
-      )}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onBloomModeChange(false)}
+            disabled={!is3DMode}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              !is3DMode
+                ? 'cursor-not-allowed opacity-40'
+                : !bloomMode 
+                  ? 'border-primary text-primary' 
+                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconPoint className="h-5 w-5" />
+            <span className="text-xs font-medium">None</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onBloomModeChange(true)}
+            disabled={!is3DMode}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              !is3DMode
+                ? 'cursor-not-allowed opacity-40'
+                : bloomMode 
+                  ? 'border-primary text-primary' 
+                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconSparkles className="h-5 w-5" />
+            <span className="text-xs font-medium">Bloom</span>
+          </button>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">Camera</p>
+          {!is3DMode && (
+            <span className="text-xs text-muted-foreground">3D only</span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onOrbitingChange(false)}
+            disabled={!is3DMode}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              !is3DMode
+                ? 'cursor-not-allowed opacity-40'
+                : !isOrbiting 
+                  ? 'border-primary text-primary' 
+                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconCircle className="h-5 w-5" />
+            <span className="text-xs font-medium">Static</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onOrbitingChange(true)}
+            disabled={!is3DMode}
+            className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 bg-transparent p-4 transition-all duration-300 ease-in-out ${
+              !is3DMode
+                ? 'cursor-not-allowed opacity-40'
+                : isOrbiting 
+                  ? 'border-primary text-primary' 
+                  : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <IconRotate360 className="h-5 w-5" />
+            <span className="text-xs font-medium">Orbit</span>
+          </button>
+        </div>
+        
+        <div className={`space-y-2 pt-2 transition-opacity duration-200 ${!is3DMode || !isOrbiting ? 'opacity-40 pointer-events-none' : ''}`}>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">Speed</p>
+            <span className="text-xs text-muted-foreground">{orbitSpeed.toFixed(1)}x</span>
+          </div>
+          <Slider
+            value={[orbitSpeed]}
+            onValueChange={(values) => onOrbitSpeedChange(values[0])}
+            min={0.1}
+            max={2}
+            step={0.1}
+            className="w-full"
+            disabled={!is3DMode || !isOrbiting}
+          />
+        </div>
+      </div>
     </div>
   )
 }
 
-export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange, onNodeSelect }: GraphControlsProps) {
+export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange, onNodeSelect, bloomMode = false, onBloomModeChange, showLabels = false, onShowLabelsChange }: GraphControlsProps) {
   const stats = React.useMemo(() => (graphData ? getGraphStats(graphData) : null), [graphData])
   const [apiUrl, setApiUrl] = React.useState("")
   const [apiKey, setApiKey] = React.useState("")
@@ -702,54 +805,63 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
               </motion.div>
 
               {/* Panel content */}
-              <AnimatePresence>
+              <AnimatePresence mode="wait">
                 {activePanel && (
                   <motion.div
+                    key={activePanel}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{
                       duration: 0.2,
+                      layout: { duration: 0 }
                     }}
+                    className="max-h-[calc(100vh-var(--header-offset)-5rem)] min-h-[200px]"
                   >
-                    <Card className="p-4">
-                      {activePanel === 'connect' && (
-                        <ConnectPanel
-                          apiUrl={apiUrl}
-                          apiKey={apiKey}
-                          isConnecting={isConnecting}
-                          isLoading={isLoading}
-                          formError={formError}
-                          error={error}
-                          progress={progress}
-                          onApiUrlChange={setApiUrl}
-                          onApiKeyChange={setApiKey}
-                          onConnect={handleConnect}
-                          onDisconnect={handleDisconnect}
-                          onClearCache={handleClearCache}
-                        />
-                      )}
-                      {activePanel === 'stats' && (
-                        <StatsPanel stats={stats} />
-                      )}
-                      {activePanel === 'search' && (
-                        <SearchPanel 
-                          graphData={graphData}
-                          onNodeSelect={onNodeSelect}
-                        />
-                      )}
-                      {activePanel === 'customize' && (
-                        <CustomizePanel 
-                          isDarkMode={isDarkMode}
-                          is3DMode={is3DMode}
-                          isOrbiting={isOrbiting}
-                          orbitSpeed={orbitSpeed}
-                          onThemeChange={handleThemeChange}
-                          on3DModeChange={handle3DModeChange}
-                          onOrbitingChange={handleOrbitingChange}
-                          onOrbitSpeedChange={handleOrbitSpeedChange}
-                        />
-                      )}
+                    <Card className="flex h-full max-h-full flex-col overflow-hidden" style={{ willChange: 'contents' }}>
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+                        {activePanel === 'connect' && (
+                          <ConnectPanel
+                            apiUrl={apiUrl}
+                            apiKey={apiKey}
+                            isConnecting={isConnecting}
+                            isLoading={isLoading}
+                            formError={formError}
+                            error={error}
+                            progress={progress}
+                            onApiUrlChange={setApiUrl}
+                            onApiKeyChange={setApiKey}
+                            onConnect={handleConnect}
+                            onDisconnect={handleDisconnect}
+                            onClearCache={handleClearCache}
+                          />
+                        )}
+                        {activePanel === 'stats' && (
+                          <StatsPanel stats={stats} />
+                        )}
+                        {activePanel === 'search' && (
+                          <SearchPanel 
+                            graphData={graphData}
+                            onNodeSelect={onNodeSelect}
+                          />
+                        )}
+                        {activePanel === 'customize' && (
+                          <CustomizePanel 
+                            isDarkMode={isDarkMode}
+                            is3DMode={is3DMode}
+                            isOrbiting={isOrbiting}
+                            orbitSpeed={orbitSpeed}
+                            bloomMode={bloomMode}
+                            showLabels={showLabels}
+                            onThemeChange={handleThemeChange}
+                            on3DModeChange={handle3DModeChange}
+                            onOrbitingChange={handleOrbitingChange}
+                            onOrbitSpeedChange={handleOrbitSpeedChange}
+                            onBloomModeChange={onBloomModeChange || (() => {})}
+                            onShowLabelsChange={onShowLabelsChange || (() => {})}
+                          />
+                        )}
+                      </div>
                     </Card>
                   </motion.div>
                 )}

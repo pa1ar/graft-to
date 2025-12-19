@@ -58,6 +58,8 @@ interface ForceGraph3DProps {
   isOrbiting?: boolean
   orbitSpeed?: number
   newYearMode?: boolean
+  bloomMode?: boolean
+  showLabels?: boolean
 }
 
 interface InternalGraphData {
@@ -65,7 +67,7 @@ interface InternalGraphData {
   links: GraphLink[]
 }
 
-export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, isOrbiting = false, orbitSpeed = 1, newYearMode = false }: ForceGraph3DProps) {
+export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, isOrbiting = false, orbitSpeed = 1, newYearMode = false, bloomMode = false, showLabels = false }: ForceGraph3DProps) {
   const graphRef = React.useRef<any>(null)
   const [theme, setTheme] = React.useState<ThemeMode>(() => getInitialTheme())
   const [hoveredNode, setHoveredNode] = React.useState<GraphNode | null>(null)
@@ -76,15 +78,32 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
   const [graphDataState, setGraphDataState] = React.useState<InternalGraphData>({ nodes: [], links: [] })
   const spriteMapRef = React.useRef<Map<string, any>>(new Map())
   const [SpriteText, setSpriteText] = React.useState<any>(null)
-  const cameraDistanceRef = React.useRef<number>(1000)
   const orbitAngleRef = React.useRef<number>(0)
+  const orbitDistanceRef = React.useRef<number>(1400)
   const bloomPassRef = React.useRef<any>(null)
+  const UnrealBloomPassRef = React.useRef<any>(null)
 
-  // Load SpriteText dynamically
+  const getBloomNodeColor = React.useCallback((linkCount: number): string => {
+    if (linkCount === 0) return "#a855f7" // Purple
+    if (linkCount <= 2) return "#1e40af" // Deep blue
+    if (linkCount === 3) return "#60a5fa" // Light blue
+    if (linkCount <= 5) return "#34d399" // Green
+    if (linkCount <= 7) return "#f97316" // Orange
+    return "#ef4444" // Red (8+)
+  }, [])
+
+  // Load SpriteText and UnrealBloomPass dynamically (pre-load for smooth transitions)
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       import("three-spritetext").then((module) => {
         setSpriteText(() => module.default)
+      })
+      
+      // Pre-load UnrealBloomPass to prevent flash when enabling bloom
+      import("three/examples/jsm/postprocessing/UnrealBloomPass.js").then((module: any) => {
+        UnrealBloomPassRef.current = module.UnrealBloomPass
+      }).catch((error) => {
+        console.error("Failed to load UnrealBloomPass:", error)
       })
     }
   }, [])
@@ -156,7 +175,7 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     }
   }, [])
 
-  // Force graph re-render when newYearMode changes to prevent color flash
+  // Force graph re-render when newYearMode or bloomMode changes to prevent color flash
   React.useEffect(() => {
     if (!graphRef.current) return
     
@@ -166,30 +185,25 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
       nodes: [...prev.nodes],
       links: [...prev.links],
     }))
-  }, [newYearMode])
+  }, [newYearMode, bloomMode])
 
-  // Setup bloom pass for new year mode - exactly as in the reference example
+  // Setup bloom pass for new year mode or bloom mode - exactly as in the reference example
   // Reference: https://github.com/vasturiano/react-force-graph/blob/master/example/bloom-effect/index.html
   React.useEffect(() => {
     if (!graphRef.current || typeof window === "undefined") return
 
-    if (newYearMode) {
-      // Import and setup bloom pass exactly as in the reference
-      import("three/examples/jsm/postprocessing/UnrealBloomPass.js").then((module: any) => {
-        const { UnrealBloomPass } = module
-        
+    const composer = graphRef.current.postProcessingComposer()
+    if (!composer) return
+
+    if (newYearMode || bloomMode) {
+      // Use pre-loaded UnrealBloomPass if available, otherwise load it
+      const setupBloom = (UnrealBloomPass: any) => {
         if (!graphRef.current) return
         
-        const composer = graphRef.current.postProcessingComposer()
-        if (!composer) return
-        
-        // Remove existing bloom pass if any
+        // If bloom pass already exists, just enable it
         if (bloomPassRef.current) {
-          const passes = composer.passes
-          const index = passes.indexOf(bloomPassRef.current)
-          if (index > -1) {
-            passes.splice(index, 1)
-          }
+          bloomPassRef.current.enabled = true
+          return
         }
         
         // Create bloom pass exactly as in reference
@@ -197,26 +211,49 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
         bloomPass.strength = 4
         bloomPass.radius = 1
         bloomPass.threshold = 0
+        
         composer.addPass(bloomPass)
         bloomPassRef.current = bloomPass
-      }).catch((error) => {
-        console.error("Failed to load UnrealBloomPass:", error)
-      })
-    } else {
-      // Remove bloom pass when disabled
-      if (bloomPassRef.current && graphRef.current) {
-        const composer = graphRef.current.postProcessingComposer()
-        if (composer) {
-          const passes = composer.passes
-          const index = passes.indexOf(bloomPassRef.current)
-          if (index > -1) {
-            passes.splice(index, 1)
+      }
+
+      if (UnrealBloomPassRef.current) {
+        // Use pre-loaded module - no async delay
+        setupBloom(UnrealBloomPassRef.current)
+      } else {
+        // Fallback: load if not pre-loaded yet
+        import("three/examples/jsm/postprocessing/UnrealBloomPass.js").then((module: any) => {
+          UnrealBloomPassRef.current = module.UnrealBloomPass
+          setupBloom(module.UnrealBloomPass)
+        }).catch((error) => {
+          console.error("Failed to load UnrealBloomPass:", error)
+        })
+      }
+      
+      // Ensure all existing sprites are excluded from bloom
+      spriteMapRef.current.forEach((sprite) => {
+        sprite.layers.set(1) // Move sprites to layer 1
+        // Also ensure material doesn't contribute to bloom
+        if (sprite.material) {
+          if (sprite.material.emissive) {
+            sprite.material.emissive.setHex(0x000000)
+          }
+          if (sprite.material.emissiveIntensity !== undefined) {
+            sprite.material.emissiveIntensity = 0
           }
         }
-        bloomPassRef.current = null
+      })
+    } else {
+      // Disable bloom pass instead of removing it to prevent flash
+      if (bloomPassRef.current) {
+        bloomPassRef.current.enabled = false
       }
+      
+      // Reset sprite layers to default (layer 0)
+      spriteMapRef.current.forEach((sprite) => {
+        sprite.layers.set(0)
+      })
     }
-  }, [newYearMode])
+  }, [newYearMode, bloomMode])
 
   React.useEffect(() => {
     if (typeof window === "undefined") return
@@ -261,6 +298,12 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
   }
 
   const getNodeColor = React.useCallback((node: any) => {
+    // In bloom mode, use connection-based colors
+    if (bloomMode) {
+      const linkCount = node.linkCount ?? 0
+      return getBloomNodeColor(linkCount)
+    }
+    
     // In new year mode, always use node's color property for colorful display
     if (newYearMode) {
       return node.color || colors.node
@@ -275,7 +318,7 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     }
     
     return colors.node
-  }, [newYearMode, colors, selectedNode, hoveredNode])
+  }, [bloomMode, newYearMode, colors, selectedNode, hoveredNode, getBloomNodeColor])
 
   const getLinkColor = (link: any) => {
     const activeNode = getActiveNode()
@@ -299,44 +342,125 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     return 1
   }
 
+  // Memoize handlers to prevent infinite loops and unnecessary re-renders
+  const handleNodeHover = React.useCallback((node: any) => {
+    setHoveredNode(node)
+  }, [])
+
+  const handleNodeClick = React.useCallback((node: any) => {
+    onNodeClick?.(node as GraphNode)
+  }, [onNodeClick])
+
+  const handleBackgroundClick = React.useCallback(() => {
+    onBackgroundClick?.()
+  }, [onBackgroundClick])
+
   // Create 3D text sprites using SpriteText
   const nodeThreeObject = React.useCallback((node: any) => {
+    // Don't create sprites at all when labels are hidden
+    if (!showLabels) return undefined
     if (typeof window === "undefined" || !SpriteText) return undefined
     
     const sprite = new SpriteText(node.title)
     // Use appropriate color based on mode - will be updated by effect
-    sprite.color = newYearMode ? (node.color || colors.node) : colors.node
+    if (bloomMode) {
+      const linkCount = node.linkCount ?? 0
+      sprite.color = getBloomNodeColor(linkCount)
+    } else if (newYearMode) {
+      sprite.color = node.color || colors.node
+    } else {
+      sprite.color = colors.node
+    }
     sprite.textHeight = 8
     sprite.center.y = -0.6
-    sprite.backgroundColor = false // Remove background rectangles
+    // Remove background rectangles - SpriteText should accept null or false
+    sprite.backgroundColor = null
+    if (sprite.material) {
+      sprite.material.transparent = true
+      sprite.material.opacity = 1
+      sprite.material.depthWrite = false
+    }
     
-    // Make text transparent initially, visibility updated by camera tracking
-    sprite.material.transparent = true
-    sprite.material.opacity = cameraDistanceRef.current < 800 ? 1 : 0
+    // Exclude labels from bloom effect by assigning them to layer 1
+    // and ensuring material doesn't contribute to bloom
+    if (bloomMode || newYearMode) {
+      sprite.layers.set(1)
+      if (sprite.material) {
+        if (sprite.material.emissive) {
+          sprite.material.emissive.setHex(0x000000)
+        }
+        if (sprite.material.emissiveIntensity !== undefined) {
+          sprite.material.emissiveIntensity = 0
+        }
+      }
+    }
     
-    // Store reference for camera distance updates
+    // Store reference for updates
     spriteMapRef.current.set(node.id, sprite)
     
     return sprite
-  }, [colors, newYearMode])
+  }, [colors, newYearMode, bloomMode, getBloomNodeColor, showLabels])
 
-  // Update sprite colors when theme or selection changes (without triggering camera movement)
+  // Update sprite colors when theme or selection changes
+  // Also clean up sprites when showLabels is disabled
   React.useEffect(() => {
+    if (!showLabels) {
+      // Remove all sprites when labels are hidden
+      spriteMapRef.current.forEach((sprite) => {
+        if (sprite.parent) {
+          sprite.parent.remove(sprite)
+        }
+      })
+      spriteMapRef.current.clear()
+      // Don't call setGraphDataState here - it causes infinite loop
+      // The graph will automatically update when nodeThreeObject returns undefined
+      return
+    }
+    
+    // Only update existing sprites - use stableDataRef to avoid dependency on graphDataState.nodes
     spriteMapRef.current.forEach((sprite, nodeId) => {
-      const node = graphDataState.nodes.find(n => n.id === nodeId)
+      const node = stableDataRef.current.nodes.find(n => n.id === nodeId)
       if (node) {
         sprite.color = getNodeColor(node)
+        sprite.material.opacity = 1
+        // Ensure no background is set
+        sprite.backgroundColor = null
+        
+        // Exclude labels from bloom effect by assigning them to layer 1
+        // and ensuring material doesn't contribute to bloom
+        if (bloomMode || newYearMode) {
+          sprite.layers.set(1)
+          if (sprite.material) {
+            if (sprite.material.emissive) {
+              sprite.material.emissive.setHex(0x000000)
+            }
+            if (sprite.material.emissiveIntensity !== undefined) {
+              sprite.material.emissiveIntensity = 0
+            }
+          }
+        } else {
+          sprite.layers.set(0)
+        }
       }
     })
-  }, [theme, hoveredNode, selectedNode, graphDataState.nodes, colors, newYearMode, getNodeColor])
+  }, [theme, hoveredNode, selectedNode, colors, newYearMode, bloomMode, getNodeColor, showLabels])
 
-  // Clean up sprites when nodes are removed
+  // Clean up sprites when nodes are removed or when showLabels is disabled
   React.useEffect(() => {
+    if (!showLabels) {
+      // Sprites are already cleaned up in the other effect
+      return
+    }
+    
     const currentNodeIds = new Set(graphDataState.nodes.map(n => n.id))
     const spritesToRemove: string[] = []
     
-    spriteMapRef.current.forEach((_, nodeId) => {
+    spriteMapRef.current.forEach((sprite, nodeId) => {
       if (!currentNodeIds.has(nodeId)) {
+        // Remove sprite from scene if it has a parent
+        if (sprite.parent) {
+          sprite.parent.remove(sprite)
+        }
         spritesToRemove.push(nodeId)
       }
     })
@@ -344,53 +468,38 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     spritesToRemove.forEach(nodeId => {
       spriteMapRef.current.delete(nodeId)
     })
-  }, [graphDataState.nodes])
+  }, [graphDataState.nodes, showLabels])
 
-  // Track camera distance and update label visibility based on zoom
-  React.useEffect(() => {
-    if (!graphRef.current) return
-    
-    const updateLabelVisibility = () => {
-      const camera = graphRef.current?.camera()
-      if (!camera) return
-      
-      const distance = camera.position.length()
-      cameraDistanceRef.current = distance
-      
-      // Show labels when zoomed in (distance < 800), hide when zoomed out
-      const showLabels = distance < 800
-      const targetOpacity = showLabels ? 1 : 0
-      
-      spriteMapRef.current.forEach((sprite) => {
-        if (sprite.material.opacity !== targetOpacity) {
-          sprite.material.opacity = targetOpacity
-        }
-      })
-    }
-    
-    // Update on animation frames for smooth visibility transitions
-    const intervalId = setInterval(updateLabelVisibility, 100)
-    
-    return () => clearInterval(intervalId)
-  }, [graphDataState.nodes])
 
   // Camera orbit effect
   React.useEffect(() => {
     if (!graphRef.current || !isOrbiting) return
-
-    const distance = 1400
     
     // Set initial camera position
     if (orbitAngleRef.current === 0) {
-      graphRef.current.cameraPosition({ z: distance })
+      graphRef.current.cameraPosition({ z: orbitDistanceRef.current })
     }
 
     const intervalId = setInterval(() => {
       if (!graphRef.current) return
       
+      // Get current camera position to track user's zoom
+      const camera = graphRef.current.camera()
+      if (camera) {
+        const currentDistance = Math.sqrt(
+          camera.position.x * camera.position.x +
+          camera.position.y * camera.position.y +
+          camera.position.z * camera.position.z
+        )
+        // Update distance ref to track zoom changes
+        if (currentDistance > 0) {
+          orbitDistanceRef.current = currentDistance
+        }
+      }
+      
       graphRef.current.cameraPosition({
-        x: distance * Math.sin(orbitAngleRef.current),
-        z: distance * Math.cos(orbitAngleRef.current)
+        x: orbitDistanceRef.current * Math.sin(orbitAngleRef.current),
+        z: orbitDistanceRef.current * Math.cos(orbitAngleRef.current)
       })
       orbitAngleRef.current += (Math.PI / 300) * orbitSpeed
     }, 10)
@@ -412,20 +521,20 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
       linkTarget="target"
       nodeLabel={(node: any) => node.title}
       nodeColor={getNodeColor}
-      nodeThreeObject={nodeThreeObject}
+      nodeThreeObject={showLabels ? nodeThreeObject : undefined}
       nodeThreeObjectExtend={true}
       linkColor={getLinkColor}
       linkWidth={getLinkWidth}
       linkDirectionalParticles={0}
-      onNodeHover={(node: any) => setHoveredNode(node)}
-      onNodeClick={(node: any) => onNodeClick?.(node as GraphNode)}
-      onBackgroundClick={() => onBackgroundClick?.()}
-      backgroundColor={newYearMode ? "#000003" : colors.background}
+      onNodeHover={handleNodeHover}
+      onNodeClick={handleNodeClick}
+      onBackgroundClick={handleBackgroundClick}
+      backgroundColor={newYearMode || bloomMode ? "#000003" : colors.background}
       cooldownTicks={100}
       warmupTicks={50}
       enableNodeDrag={!isOrbiting}
-      enableNavigationControls={!isOrbiting}
-      showNavInfo={!isOrbiting}
+      enableNavigationControls={true}
+      showNavInfo={false}
     />
   )
 }
