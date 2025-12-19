@@ -13,15 +13,34 @@ const EMPTY_GRAPH: GraphData = { nodes: [], links: [] }
 const HEADER_EVENT = "graft:header-size-change"
 const HEADER_FALLBACK = 56
 
+const STORAGE_KEY_3D_MODE = "graft_3d_mode"
+const STORAGE_KEY_ORBITING = "graft_orbiting"
+const STORAGE_KEY_ORBIT_SPEED = "graft_orbit_speed"
+const STORAGE_KEY_BLOOM_MODE = "graft_bloom_mode"
+const STORAGE_KEY_SHOW_LABELS = "graft_show_labels"
+
+const getStoredBoolean = (key: string, defaultValue: boolean): boolean => {
+  if (typeof window === "undefined") return defaultValue
+  const stored = localStorage.getItem(key)
+  return stored !== null ? stored === "true" : defaultValue
+}
+
+const getStoredNumber = (key: string, defaultValue: number): number => {
+  if (typeof window === "undefined") return defaultValue
+  const stored = localStorage.getItem(key)
+  const parsed = stored !== null ? parseFloat(stored) : defaultValue
+  return Number.isFinite(parsed) ? parsed : defaultValue
+}
+
 export default function Page() {
   const { graphData, isLoading, isRefreshing, error, progress, reload, refresh } = useCraftGraph()
   const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(null)
   const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
-  const [is3D, setIs3D] = React.useState(false)
-  const [isOrbiting, setIsOrbiting] = React.useState(false)
-  const [orbitSpeed, setOrbitSpeed] = React.useState(1)
-  const [bloomMode, setBloomMode] = React.useState(false)
-  const [showLabels, setShowLabels] = React.useState(false)
+  const [is3D, setIs3D] = React.useState(() => getStoredBoolean(STORAGE_KEY_3D_MODE, false))
+  const [isOrbiting, setIsOrbiting] = React.useState(() => getStoredBoolean(STORAGE_KEY_ORBITING, false))
+  const [orbitSpeed, setOrbitSpeed] = React.useState(() => getStoredNumber(STORAGE_KEY_ORBIT_SPEED, 1))
+  const [bloomMode, setBloomMode] = React.useState(() => getStoredBoolean(STORAGE_KEY_BLOOM_MODE, false))
+  const [showLabels, setShowLabels] = React.useState(() => getStoredBoolean(STORAGE_KEY_SHOW_LABELS, false))
   
   const graph2DRef = React.useRef<ForceGraphRef>(null)
   const graph3DRef = React.useRef<ForceGraph3DRef>(null)
@@ -50,6 +69,27 @@ export default function Page() {
       window.removeEventListener(HEADER_EVENT, updateDimensions)
     }
   }, [getHeaderHeight])
+
+  // Save settings to localStorage
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_3D_MODE, String(is3D))
+  }, [is3D])
+
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_ORBITING, String(isOrbiting))
+  }, [isOrbiting])
+
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_ORBIT_SPEED, String(orbitSpeed))
+  }, [orbitSpeed])
+
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_BLOOM_MODE, String(bloomMode))
+  }, [bloomMode])
+
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SHOW_LABELS, String(showLabels))
+  }, [showLabels])
 
   // Disable orbit and bloom mode when switching to 2D mode
   React.useEffect(() => {

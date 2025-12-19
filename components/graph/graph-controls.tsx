@@ -46,9 +46,18 @@ import {
 import type { GraphData } from "@/lib/graph"
 import { createFetcher, getGraphStats, clearAllData, clearCache } from "@/lib/graph"
 
+// Storage keys for user preferences and credentials
 const STORAGE_KEY_URL = "craft_api_url"
 const STORAGE_KEY_KEY = "craft_api_key"
 const STORAGE_KEY_THEME = "graft_theme"
+
+// Graph visualization settings (persisted in page.tsx):
+// - graft_3d_mode: 3D visualization toggle
+// - graft_orbiting: Auto-orbit mode
+// - graft_orbit_speed: Orbit speed value
+// - graft_bloom_mode: Bloom effect toggle
+// - graft_show_labels: Node labels toggle
+
 const THEME_EVENT = "graft:theme-change"
 
 type Theme = "light" | "dark"
