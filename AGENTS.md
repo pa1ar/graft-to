@@ -22,9 +22,11 @@ Graft visualizes Craft document connections as an interactive force-directed gra
 3. **Progressive loading**: Graph builds with progress feedback for better UX.
 
 ## Key Directories
+Main path: /Users/pavel/_code/craft-docs/graft-do
 - `lib/graph/`: Standalone graph library (types, parser, fetcher)
-- `components/graph/`: React components for visualization
-- `components/setup/`: API connection setup UI
+- `components/`: All React components must live here (not in craft-do-api)
+  - `components/graph/`: React components for visualization
+  - `components/ui/`: shadcn/ui components
 - `hooks/`: Custom hooks for graph data management
 
 ## Development

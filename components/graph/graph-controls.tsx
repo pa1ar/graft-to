@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { track } from "@vercel/analytics/react"
 import { 
   IconMoon, 
   IconRefresh, 
@@ -29,6 +30,7 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,6 +113,43 @@ function ConnectPanel({
 }: ConnectPanelProps) {
   return (
     <form onSubmit={onConnect} className="space-y-4">
+      <Accordion>
+        <AccordionItem value="how-it-works">
+          <AccordionTrigger>What's Graft?</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4 text-xs">
+              <p>
+                Graft is a read-only, <a href="https://github.com/pa1ar/graft-to" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">open-source</a> graph visualization of your <a href="https://craft.do" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">Craft Docs</a> space.
+              </p>
+              
+              <div>
+                <p className="font-medium mb-2">What you need:</p>
+                <ul className="list-disc list-inside space-y-1.5 ml-2">
+                  <li><strong>API URL</strong></li>
+                  <li><strong>API Key</strong></li>
+                </ul>
+                <p className="mt-2 text-muted-foreground">
+                  Create one in Craft → <a 
+                    href="https://www.craft.do/imagine" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
+                  >
+                    Imagine
+                  </a>
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-border">
+                <p className="text-muted-foreground">
+                  Your API credentials are stored locally in your browser only. They are passed via headers through a proxy to avoid CORS issues, but <strong className="text-foreground">never logged or stored on the server</strong>.
+                </p>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
       <Field>
         <FieldLabel htmlFor="graph-api-url">API URL</FieldLabel>
         <Input
@@ -211,10 +250,6 @@ function ConnectPanel({
           )}
         </div>
       )}
-
-      <div className="rounded-2xl bg-muted/40 p-3 text-xs text-muted-foreground">
-        Your API credentials are stored locally in your browser only. They are passed via headers through a proxy to avoid CORS issues, but never logged or stored on the server.
-      </div>
     </form>
   )
 }
