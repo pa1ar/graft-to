@@ -816,10 +816,9 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
                       duration: 0.2,
                       layout: { duration: 0 }
                     }}
-                    className="max-h-[calc(100vh-var(--header-offset)-5rem)] min-h-[200px]"
                   >
-                    <Card className="flex h-full max-h-full flex-col overflow-hidden" style={{ willChange: 'contents' }}>
-                      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+                    <Card className="flex max-h-[calc(100vh-var(--header-offset)-5rem)] flex-col overflow-hidden pt-2 pb-4" style={{ willChange: 'contents' }}>
+                      <div className="node-preview-content flex-1 overflow-y-auto overflow-x-hidden p-4">
                         {activePanel === 'connect' && (
                           <ConnectPanel
                             apiUrl={apiUrl}
