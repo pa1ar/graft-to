@@ -21,7 +21,8 @@ import {
   IconTag,
   IconCircle,
   IconPoint,
-  IconEyeOff
+  IconEyeOff,
+  IconFocus
 } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
@@ -66,6 +67,7 @@ interface GraphControlsProps {
   error?: string | null
   onReload: () => void
   onRefresh?: () => void
+  onRecenter?: () => void
   is3DMode?: boolean
   onIs3DModeChange?: (is3D: boolean) => void
   isOrbiting?: boolean
@@ -590,7 +592,7 @@ function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, bloomMod
   )
 }
 
-export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange, onNodeSelect, bloomMode = false, onBloomModeChange, showLabels = false, onShowLabelsChange }: GraphControlsProps) {
+export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, onRecenter, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange, onNodeSelect, bloomMode = false, onBloomModeChange, showLabels = false, onShowLabelsChange }: GraphControlsProps) {
   const stats = React.useMemo(() => (graphData ? getGraphStats(graphData) : null), [graphData])
   const [apiUrl, setApiUrl] = React.useState("")
   const [apiKey, setApiKey] = React.useState("")
@@ -826,6 +828,15 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
                     <div className="flex-1" />
                     
                     {/* Right-aligned buttons */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={onRecenter} 
+                      title="Recenter graph"
+                      disabled={!graphData || isLoading}
+                    >
+                      <IconFocus className="h-4 w-4" />
+                    </Button>
                     <Button 
                       variant="ghost" 
                       size="icon" 

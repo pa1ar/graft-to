@@ -2,8 +2,8 @@
 
 import * as React from "react"
 
-import { ForceGraph } from "@/components/graph/force-graph"
-import { ForceGraph3DComponent } from "@/components/graph/force-graph-3d"
+import { ForceGraph, type ForceGraphRef } from "@/components/graph/force-graph"
+import { ForceGraph3DComponent, type ForceGraph3DRef } from "@/components/graph/force-graph-3d"
 import { NodePreview } from "@/components/graph/node-preview"
 import { GraphControls } from "@/components/graph/graph-controls"
 import { useCraftGraph } from "@/hooks/use-craft-graph"
@@ -22,6 +22,9 @@ export default function Page() {
   const [orbitSpeed, setOrbitSpeed] = React.useState(1)
   const [bloomMode, setBloomMode] = React.useState(false)
   const [showLabels, setShowLabels] = React.useState(false)
+  
+  const graph2DRef = React.useRef<ForceGraphRef>(null)
+  const graph3DRef = React.useRef<ForceGraph3DRef>(null)
 
   const getHeaderHeight = React.useCallback(() => {
     if (typeof document === "undefined") return HEADER_FALLBACK
@@ -68,6 +71,14 @@ export default function Page() {
     }
   }, [graphData])
 
+  const handleRecenter = React.useCallback(() => {
+    if (is3D) {
+      graph3DRef.current?.recenter()
+    } else {
+      graph2DRef.current?.recenter()
+    }
+  }, [is3D])
+
   return (
     <div className="relative w-screen overflow-hidden" style={{ height: "calc(100vh - var(--header-height))" }}>
       <GraphControls
@@ -78,6 +89,7 @@ export default function Page() {
         error={error}
         onReload={reload}
         onRefresh={refresh}
+        onRecenter={handleRecenter}
         is3DMode={is3D}
         onIs3DModeChange={setIs3D}
         isOrbiting={isOrbiting}
@@ -93,6 +105,7 @@ export default function Page() {
       
       {is3D ? (
         <ForceGraph3DComponent
+          ref={graph3DRef}
           data={graphData ?? EMPTY_GRAPH}
           onNodeClick={setSelectedNode}
           onBackgroundClick={() => setSelectedNode(null)}
@@ -106,6 +119,7 @@ export default function Page() {
         />
       ) : (
         <ForceGraph
+          ref={graph2DRef}
           data={graphData ?? EMPTY_GRAPH}
           onNodeClick={setSelectedNode}
           onBackgroundClick={() => setSelectedNode(null)}

@@ -58,13 +58,18 @@ interface ForceGraphProps {
   showLabels?: boolean
 }
 
+export interface ForceGraphRef {
+  recenter: () => void
+}
+
 // Stable internal graph data that persists node positions
 interface InternalGraphData {
   nodes: (GraphNode & { x?: number; y?: number; vx?: number; vy?: number })[]
   links: GraphLink[]
 }
 
-export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, showLabels = false }: ForceGraphProps) {
+export const ForceGraph = React.forwardRef<ForceGraphRef, ForceGraphProps>(
+  ({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, showLabels = false }, ref) => {
   const graphRef = React.useRef<any>(null)
   const [theme, setTheme] = React.useState<ThemeMode>(() => getInitialTheme())
   const [hoveredNode, setHoveredNode] = React.useState<GraphNode | null>(null)
@@ -323,6 +328,15 @@ export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode,
     return 1
   }
 
+  // Expose recenter method via ref
+  React.useImperativeHandle(ref, () => ({
+    recenter: () => {
+      if (graphRef.current) {
+        graphRef.current.zoomToFit(400, 50)
+      }
+    },
+  }), [])
+
   // Draw labels based on showLabels prop
   const drawNodeLabel = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
     // Only show labels if showLabels is enabled
@@ -387,5 +401,7 @@ export function ForceGraph({ data, onNodeClick, onBackgroundClick, selectedNode,
       }}
     />
   )
-}
+})
+
+ForceGraph.displayName = "ForceGraph"
 

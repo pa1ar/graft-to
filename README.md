@@ -2,7 +2,9 @@
 
 **Graph visualization for Craft documents**
 
-Graft creates an interactive graph of your Craft document connections, making it easy to see how your notes relate to each other.
+> Graft creates an interactive graph of your Craft document connections, making it easy to see how your notes relate to each other.
+
+[![Graft - Interactive Craft Document Visualization](https://img.shields.io/badge/Try-Graft-yellow?style=for-the-badge&logo=craft&logoColor=708090&color=fcc800)](https://1ar.craft.me/graft)
 
 ![Graft 2D Graph Visualization](./public/graft-to-2d.png)
 *Interactive 2D force-directed graph showing document connections*
@@ -19,7 +21,7 @@ Graft creates an interactive graph of your Craft document connections, making it
 - **Fun Effects**: "New Year" mode with bloom and colored nodes (pro tip: you can use it on second monitor during that holiday season 🎄)
 
 ![Graft 3D Graph Visualization](./public/graft-to-3d.png)
-*3D graph visualization with bloom effects and camera controls*
+*3D graph visualization*
 
 ## Getting Started
 
@@ -79,7 +81,7 @@ To deploy Graft, you can use Vercel:
 
 ### Privacy-First Proxy
 
-Browsers block direct requests from one domain (like `graft.to`) to another (like Craft's API) due to CORS security policies. To work around this, Graft uses a proxy:
+Browsers block direct requests from one domain (like `graft.to`) to another (like Craft's API) due to [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) security policies. To work around this, Graft uses a proxy:
 
 1. **Your browser** stores your API credentials in `localStorage` (never sent to our servers for storage)
 2. **When making API calls**, your browser sends requests to our Next.js server at `/api/craft/[...path]` with your credentials in request headers
@@ -87,6 +89,8 @@ Browsers block direct requests from one domain (like `graft.to`) to another (lik
 4. **Craft's API** responds to our server, which then forwards the response back to your browser
 
 Your credentials exist only in the request headers during this process - they're never logged, stored in a database, or persisted on the server. The proxy is just a pass-through that enables the browser to communicate with Craft's API.
+
+Feel free to review our code, find bugs and create issues if you find any.
 
 ### Incremental Updates with Chronological Tracking
 
@@ -155,6 +159,6 @@ I have built the project as an experiment, motivated by Craft's [winter hackatho
 - RAG-based similarity graph for linking even unlinked docs
 - Linking proposals based on semantic similarity
 - Summaries of recent changes in your space
-- Themes support
+- Themes support (see [my Craft document](https://1ar.craft.me/graft) for inspiration images, scroll down)
 - More visualization options
 - Augmented reality support - imagine seeing your graph with documents and notes in your AR glasses!

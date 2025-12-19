@@ -62,12 +62,17 @@ interface ForceGraph3DProps {
   showLabels?: boolean
 }
 
+export interface ForceGraph3DRef {
+  recenter: () => void
+}
+
 interface InternalGraphData {
   nodes: (GraphNode & { x?: number; y?: number; z?: number; vx?: number; vy?: number; vz?: number })[]
   links: GraphLink[]
 }
 
-export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, isOrbiting = false, orbitSpeed = 1, newYearMode = false, bloomMode = false, showLabels = false }: ForceGraph3DProps) {
+export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGraph3DProps>(
+  ({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, isOrbiting = false, orbitSpeed = 1, newYearMode = false, bloomMode = false, showLabels = false }, ref) => {
   const graphRef = React.useRef<any>(null)
   const [theme, setTheme] = React.useState<ThemeMode>(() => getInitialTheme())
   const [hoveredNode, setHoveredNode] = React.useState<GraphNode | null>(null)
@@ -78,10 +83,9 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
   const [graphDataState, setGraphDataState] = React.useState<InternalGraphData>({ nodes: [], links: [] })
   const spriteMapRef = React.useRef<Map<string, any>>(new Map())
   const [SpriteText, setSpriteText] = React.useState<any>(null)
-  const orbitAngleRef = React.useRef<number>(0)
-  const orbitDistanceRef = React.useRef<number>(1400)
   const bloomPassRef = React.useRef<any>(null)
   const UnrealBloomPassRef = React.useRef<any>(null)
+  const orbitAngleRef = React.useRef<number>(0)
 
   const getBloomNodeColor = React.useCallback((linkCount: number): string => {
     if (linkCount === 0) return "#a855f7" // Purple
@@ -471,42 +475,113 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
   }, [graphDataState.nodes, showLabels])
 
 
-  // Camera orbit effect
-  React.useEffect(() => {
-    if (!graphRef.current || !isOrbiting) return
-    
-    // Set initial camera position
-    if (orbitAngleRef.current === 0) {
-      graphRef.current.cameraPosition({ z: orbitDistanceRef.current })
-    }
-
-    const intervalId = setInterval(() => {
-      if (!graphRef.current) return
+  // Expose recenter method via ref
+  React.useImperativeHandle(ref, () => ({
+    recenter: () => {
+      if (!graphRef.current || graphDataState.nodes.length === 0) return
       
-      // Get current camera position to track user's zoom
-      const camera = graphRef.current.camera()
-      if (camera) {
-        const currentDistance = Math.sqrt(
-          camera.position.x * camera.position.x +
-          camera.position.y * camera.position.y +
-          camera.position.z * camera.position.z
-        )
-        // Update distance ref to track zoom changes
-        if (currentDistance > 0) {
-          orbitDistanceRef.current = currentDistance
+      // Calculate bounding box of all nodes
+      let minX = Infinity, maxX = -Infinity
+      let minY = Infinity, maxY = -Infinity
+      let minZ = Infinity, maxZ = -Infinity
+      
+      graphDataState.nodes.forEach((node: any) => {
+        if (node.x !== undefined) {
+          minX = Math.min(minX, node.x)
+          maxX = Math.max(maxX, node.x)
         }
+        if (node.y !== undefined) {
+          minY = Math.min(minY, node.y)
+          maxY = Math.max(maxY, node.y)
+        }
+        if (node.z !== undefined) {
+          minZ = Math.min(minZ, node.z)
+          maxZ = Math.max(maxZ, node.z)
+        }
+      })
+      
+      // If no valid positions, use default
+      if (!isFinite(minX) || !isFinite(maxX)) {
+        graphRef.current.cameraPosition({ z: 1400 })
+        return
       }
       
+      // Calculate center and size
+      const centerX = (minX + maxX) / 2
+      const centerY = (minY + maxY) / 2
+      const centerZ = (minZ + maxZ) / 2
+      const sizeX = maxX - minX
+      const sizeY = maxY - minY
+      const sizeZ = maxZ - minZ
+      const maxSize = Math.max(sizeX, sizeY, sizeZ, 100) // Ensure minimum size
+      
+      // Calculate ideal distance based on FOV (default 75 degrees)
+      // Using similar calculation as react-force-graph-3d's zoomToFit
+      const fov = 75
+      const cameraZ = Math.max(maxSize * 1.5, 500)
+      
+      // Position camera to view the entire graph
       graphRef.current.cameraPosition({
-        x: orbitDistanceRef.current * Math.sin(orbitAngleRef.current),
-        z: orbitDistanceRef.current * Math.cos(orbitAngleRef.current)
+        x: centerX,
+        y: centerY,
+        z: centerZ + cameraZ
       })
-      orbitAngleRef.current += (Math.PI / 300) * orbitSpeed
-    }, 10)
+      
+      // Also update controls target to look at the center of the graph
+      const controls = graphRef.current.controls()
+      if (controls && controls.target) {
+        controls.target.set(centerX, centerY, centerZ)
+        controls.update()
+      }
+    },
+  }), [graphDataState.nodes])
 
-    return () => {
-      clearInterval(intervalId)
+  // Camera orbit effect - simple and smooth
+  React.useEffect(() => {
+    if (!graphRef.current || !isOrbiting) {
+      // Reset angle when not orbiting
       orbitAngleRef.current = 0
+      return
+    }
+
+    let animationFrameId: number
+    
+    const animate = () => {
+      if (!graphRef.current) return
+      
+      const camera = graphRef.current.camera()
+      const controls = graphRef.current.controls()
+      
+      if (!camera || !controls || !controls.target) return
+      
+      // Get the current distance from camera to target
+      const target = controls.target
+      const dx = camera.position.x - target.x
+      const dy = camera.position.y - target.y
+      const dz = camera.position.z - target.z
+      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+      
+      // Orbit around the target point (not origin)
+      const newX = target.x + distance * Math.sin(orbitAngleRef.current)
+      const newZ = target.z + distance * Math.cos(orbitAngleRef.current)
+      
+      // Update camera position while maintaining Y position
+      camera.position.x = newX
+      camera.position.z = newZ
+      camera.lookAt(target.x, target.y, target.z)
+      
+      // Increment angle based on orbit speed
+      orbitAngleRef.current += (Math.PI / 300) * orbitSpeed
+      
+      animationFrameId = requestAnimationFrame(animate)
+    }
+    
+    animationFrameId = requestAnimationFrame(animate)
+    
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+      }
     }
   }, [isOrbiting, orbitSpeed])
 
@@ -537,5 +612,7 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
       showNavInfo={false}
     />
   )
-}
+})
+
+ForceGraph3DComponent.displayName = "ForceGraph3DComponent"
 
