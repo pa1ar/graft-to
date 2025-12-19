@@ -49,6 +49,7 @@ interface ForceGraph3DProps {
   height?: number
   isOrbiting?: boolean
   orbitSpeed?: number
+  newYearMode?: boolean
 }
 
 interface InternalGraphData {
@@ -56,7 +57,7 @@ interface InternalGraphData {
   links: GraphLink[]
 }
 
-export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, isOrbiting = false, orbitSpeed = 1 }: ForceGraph3DProps) {
+export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, selectedNode, width, height, isOrbiting = false, orbitSpeed = 1, newYearMode = false }: ForceGraph3DProps) {
   const graphRef = React.useRef<any>(null)
   const [theme, setTheme] = React.useState<ThemeMode>(() => getInitialTheme())
   const [hoveredNode, setHoveredNode] = React.useState<GraphNode | null>(null)
@@ -69,6 +70,7 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
   const [SpriteText, setSpriteText] = React.useState<any>(null)
   const cameraDistanceRef = React.useRef<number>(1000)
   const orbitAngleRef = React.useRef<number>(0)
+  const bloomPassRef = React.useRef<any>(null)
 
   // Load SpriteText dynamically
   React.useEffect(() => {
@@ -146,6 +148,68 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     }
   }, [])
 
+  // Force graph re-render when newYearMode changes to prevent color flash
+  React.useEffect(() => {
+    if (!graphRef.current) return
+    
+    // Force re-render by creating new data reference
+    // This ensures nodeColor function is re-evaluated for all nodes
+    setGraphDataState(prev => ({
+      nodes: [...prev.nodes],
+      links: [...prev.links],
+    }))
+  }, [newYearMode])
+
+  // Setup bloom pass for new year mode - exactly as in the reference example
+  // Reference: https://github.com/vasturiano/react-force-graph/blob/master/example/bloom-effect/index.html
+  React.useEffect(() => {
+    if (!graphRef.current || typeof window === "undefined") return
+
+    if (newYearMode) {
+      // Import and setup bloom pass exactly as in the reference
+      import("three/examples/jsm/postprocessing/UnrealBloomPass.js").then((module: any) => {
+        const { UnrealBloomPass } = module
+        
+        if (!graphRef.current) return
+        
+        const composer = graphRef.current.postProcessingComposer()
+        if (!composer) return
+        
+        // Remove existing bloom pass if any
+        if (bloomPassRef.current) {
+          const passes = composer.passes
+          const index = passes.indexOf(bloomPassRef.current)
+          if (index > -1) {
+            passes.splice(index, 1)
+          }
+        }
+        
+        // Create bloom pass exactly as in reference
+        const bloomPass = new UnrealBloomPass()
+        bloomPass.strength = 4
+        bloomPass.radius = 1
+        bloomPass.threshold = 0
+        composer.addPass(bloomPass)
+        bloomPassRef.current = bloomPass
+      }).catch((error) => {
+        console.error("Failed to load UnrealBloomPass:", error)
+      })
+    } else {
+      // Remove bloom pass when disabled
+      if (bloomPassRef.current && graphRef.current) {
+        const composer = graphRef.current.postProcessingComposer()
+        if (composer) {
+          const passes = composer.passes
+          const index = passes.indexOf(bloomPassRef.current)
+          if (index > -1) {
+            passes.splice(index, 1)
+          }
+        }
+        bloomPassRef.current = null
+      }
+    }
+  }, [newYearMode])
+
   React.useEffect(() => {
     if (typeof window === "undefined") return
 
@@ -184,7 +248,13 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     return sourceId === activeNode.id || targetId === activeNode.id
   }
 
-  const getNodeColor = (node: any) => {
+  const getNodeColor = React.useCallback((node: any) => {
+    // In new year mode, always use node's color property for colorful display
+    if (newYearMode) {
+      return node.color || colors.node
+    }
+    
+    // Normal mode: use theme-based colors with highlighting
     const activeNode = getActiveNode()
     if (!activeNode) return colors.node
     
@@ -193,7 +263,7 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     }
     
     return colors.node
-  }
+  }, [newYearMode, colors, selectedNode, hoveredNode])
 
   const getLinkColor = (link: any) => {
     const activeNode = getActiveNode()
@@ -222,7 +292,8 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     if (typeof window === "undefined" || !SpriteText) return undefined
     
     const sprite = new SpriteText(node.title)
-    sprite.color = colors.node // Use base color initially, updated by effect
+    // Use appropriate color based on mode - will be updated by effect
+    sprite.color = newYearMode ? (node.color || colors.node) : colors.node
     sprite.textHeight = 8
     sprite.center.y = -0.6
     sprite.backgroundColor = false // Remove background rectangles
@@ -235,7 +306,7 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
     spriteMapRef.current.set(node.id, sprite)
     
     return sprite
-  }, [colors])
+  }, [colors, newYearMode])
 
   // Update sprite colors when theme or selection changes (without triggering camera movement)
   React.useEffect(() => {
@@ -245,7 +316,7 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
         sprite.color = getNodeColor(node)
       }
     })
-  }, [theme, hoveredNode, selectedNode, graphDataState.nodes, colors])
+  }, [theme, hoveredNode, selectedNode, graphDataState.nodes, colors, newYearMode, getNodeColor])
 
   // Clean up sprites when nodes are removed
   React.useEffect(() => {
@@ -337,7 +408,7 @@ export function ForceGraph3DComponent({ data, onNodeClick, onBackgroundClick, se
       onNodeHover={(node: any) => setHoveredNode(node)}
       onNodeClick={(node: any) => onNodeClick?.(node as GraphNode)}
       onBackgroundClick={() => onBackgroundClick?.()}
-      backgroundColor={colors.background}
+      backgroundColor={newYearMode ? "#000003" : colors.background}
       cooldownTicks={100}
       warmupTicks={50}
       enableNodeDrag={!isOrbiting}

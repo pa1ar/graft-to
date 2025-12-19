@@ -207,3 +207,35 @@
     transform: scale(1.02);
   }
 }
+
+/* New Year mode star glow animation */
+@keyframes star-glow {
+  from {
+    filter: drop-shadow(0 0 4px rgba(255, 255, 0, 0.8)) drop-shadow(0 0 8px rgba(255, 255, 0, 0.6));
+  }
+  to {
+    filter: drop-shadow(0 0 8px rgba(255, 255, 0, 1)) drop-shadow(0 0 16px rgba(255, 255, 0, 0.8)) drop-shadow(0 0 24px rgba(255, 255, 0, 0.6));
+  }
+}
+
+.star-glow {
+  animation: star-glow 1.5s ease-in-out infinite alternate;
+}
+
+/* Force graph 3D tooltip styling - override library defaults */
+.float-tooltip-kap {
+  background: rgba(0, 0, 0, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  pointer-events: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .float-tooltip-kap {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+  color: #000 !important;
+}
