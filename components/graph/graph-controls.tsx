@@ -598,7 +598,16 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
   const [apiKey, setApiKey] = React.useState("")
   const [isConnecting, setIsConnecting] = React.useState(false)
   const [formError, setFormError] = React.useState<string | null>(null)
-  const [isDarkMode, setIsDarkMode] = React.useState(false)
+  const [isDarkMode, setIsDarkMode] = React.useState(() => {
+    if (typeof window === "undefined") return false
+    const storedTheme = localStorage.getItem(STORAGE_KEY_THEME) as Theme | null
+    const theme = storedTheme ?? (
+      window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+    )
+    return theme === "dark"
+  })
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [activePanel, setActivePanel] = React.useState<PanelType>(null)
 
@@ -625,12 +634,12 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
     }
 
     const storedTheme = localStorage.getItem(STORAGE_KEY_THEME) as Theme | null
-    const prefersDark =
+    const theme =
       storedTheme ??
       (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light")
-    applyTheme(prefersDark)
+    applyTheme(theme)
   }, [applyTheme])
 
   const handlePanelToggle = (panel: PanelType) => {
