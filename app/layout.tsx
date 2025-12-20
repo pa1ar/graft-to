@@ -60,9 +60,38 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const themeInitScript = `
+    (function() {
+      var storageKey = "graft_theme";
+      var classNameDark = "dark";
+      try {
+        var stored = localStorage.getItem(storageKey);
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var theme = stored || (prefersDark ? "dark" : "light");
+        var isDark = theme === "dark";
+        var root = document.documentElement;
+        if (isDark) {
+          root.classList.add(classNameDark);
+        } else {
+          root.classList.remove(classNameDark);
+        }
+        var themeColor = isDark ? "#0b0b0b" : "#ffffff";
+        var metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) {
+          metaTheme.setAttribute("content", themeColor);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  `;
+
   return (
     <html lang="en" className={inter.variable}>
       <head>
+        <script
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+        />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon-16x16.png" sizes="16x16" type="image/png" />

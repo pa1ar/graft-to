@@ -136,6 +136,7 @@
     /* Ensure background covers entire viewport */
     width: 100%;
     overflow-x: hidden;
+    color-scheme: light dark;
   }
   body {
     height: 100%;
