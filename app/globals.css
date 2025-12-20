@@ -50,6 +50,8 @@
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+  /* Ensure root background is set immediately */
+  background-color: var(--background);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -123,21 +125,41 @@
     border-color: var(--border);
     outline-color: color-mix(in srgb, var(--ring) 50%, transparent);
   }
-  html, body {
+  html {
     height: 100%;
     padding: 0;
     margin: 0;
-  }
-  html {
-    background-color: var(--background);
+    background-color: var(--background) !important;
+    /* Ensure background extends into safe areas - use 100vh which includes safe areas with viewport-fit=cover */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    /* Ensure background covers entire viewport */
+    width: 100%;
+    overflow-x: hidden;
   }
   body {
-    background-color: var(--background);
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    background-color: var(--background) !important;
     color: var(--foreground);
+    /* Use safe area insets for content positioning */
     padding-top: calc(var(--header-height) + env(safe-area-inset-top));
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
     padding-bottom: env(safe-area-inset-bottom);
+    /* Ensure body extends fully */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    width: 100%;
+    overflow-x: hidden;
+  }
+  /* Ensure no white background shows through anywhere */
+  #__next,
+  [data-nextjs-scroll-focus-boundary] {
+    background-color: var(--background);
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
   }
 }
 

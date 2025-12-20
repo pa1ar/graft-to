@@ -21,6 +21,11 @@ export const metadata: Metadata = {
   description: "Visualize your Craft document connections as an interactive graph",
   manifest: "/manifest.webmanifest",
   themeColor: "#FCC800",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -58,7 +63,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon-16x16.png" sizes="16x16" type="image/png" />
