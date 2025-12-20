@@ -34,7 +34,9 @@ export const metadata: Metadata = {
     other: [
       {
         rel: "mask-icon",
-        url: "/icon.svg",
+        url: "/safari-pinned-tab.svg",
+        // @ts-ignore - color is valid for mask-icon but not in Next.js types
+        color: "#FCC800",
       },
     ],
   },
