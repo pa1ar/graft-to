@@ -69,6 +69,7 @@ export interface GraphBuildStreamingOptions {
   maxDepth?: number;
   excludeDeleted?: boolean;
   callbacks?: GraphStreamCallbacks;
+  signal?: AbortSignal;
 }
 
 export interface GraphStats {

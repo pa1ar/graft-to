@@ -22,7 +22,8 @@ import {
   IconCircle,
   IconPoint,
   IconEyeOff,
-  IconFocus
+  IconFocus,
+  IconX
 } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
@@ -76,6 +77,7 @@ interface GraphControlsProps {
   error?: string | null
   onReload: () => void
   onRefresh?: () => void
+  onCancel?: () => void
   onRecenter?: () => void
   is3DMode?: boolean
   onIs3DModeChange?: (is3D: boolean) => void
@@ -106,6 +108,7 @@ interface ConnectPanelProps {
   onConnect: (event: React.FormEvent<HTMLFormElement>) => void
   onDisconnect: () => void
   onClearCache: () => void
+  onCancelLoading?: () => void
 }
 
 function ConnectPanel({ 
@@ -120,11 +123,9 @@ function ConnectPanel({
   onApiKeyChange, 
   onConnect,
   onDisconnect,
-  onClearCache
+  onClearCache,
+  onCancelLoading
 }: ConnectPanelProps) {
-  const hasAnyInput = Boolean(apiUrl || apiKey)
-  const hasUrl = Boolean(apiUrl)
-
   return (
     <form onSubmit={onConnect} className="space-y-4">
       <Accordion>
@@ -201,70 +202,83 @@ function ConnectPanel({
         {isConnecting ? "Connecting..." : "Save connection"}
       </Button>
 
-      {/* Always show actions; disable when not applicable (no layout shift on paste). */}
-      <div className="space-y-2">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" className="w-full" type="button" disabled={!hasAnyInput}>
-              <IconUnlink className="mr-2 h-4 w-4" />
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            type="button"
+            disabled={!(apiUrl || apiKey)}
+          >
+            <IconUnlink className="mr-2 h-4 w-4" />
+            Remove connection
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove connection?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will clear your API credentials, cached graph data, and IndexedDB storage. 
+              You'll need to reconnect to view your graph again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={onDisconnect}>
               Remove connection
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Remove connection?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will clear your API credentials, cached graph data, and IndexedDB storage. 
-                You'll need to reconnect to view your graph again.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                onClick={onDisconnect}
-                disabled={!hasAnyInput}
-              >
-                Remove connection
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        <Button 
-          variant="outline" 
-          className="w-full" 
-          type="button"
-          onClick={onClearCache}
-          disabled={!hasUrl || isConnecting || isLoading}
-        >
-          Clear cache
-        </Button>
-      </div>
+      <Button 
+        variant="outline" 
+        className="w-full" 
+        type="button"
+        onClick={onClearCache}
+        disabled={!apiUrl || isConnecting || isLoading}
+      >
+        Clear cache
+      </Button>
 
       {isLoading && (
         <div className="space-y-2 rounded-2xl bg-muted/40 p-3 text-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 text-muted-foreground">
             <span className="font-medium text-foreground">Loading graph</span>
-            {progress.total > 0 && (
-              <span>
-                {progress.current} / {progress.total}
-              </span>
-            )}
-          </div>
-          {progress.message && (
-            <div className="text-muted-foreground">{progress.message}</div>
-          )}
-          {progress.total > 0 && (
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-[width] duration-200"
-                style={{
-                  width: `${Math.min(100, (progress.current / progress.total) * 100)}%`,
-                }}
-              />
+            <div className="flex items-center gap-2">
+              {progress.total > 0 ? (
+                <span>
+                  {progress.current} / {progress.total}
+                </span>
+              ) : (
+                <span className="opacity-0">0 / 0</span>
+              )}
+              {onCancelLoading && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0"
+                  onClick={onCancelLoading}
+                  title="Cancel loading"
+                >
+                  <IconX className="h-4 w-4" />
+                </Button>
+              )}
             </div>
-          )}
+          </div>
+          {/* Reserve space for 2 lines of message to prevent layout shift when text wraps */}
+          <div className="min-h-10 text-muted-foreground">
+            {progress.message && <div>{progress.message}</div>}
+          </div>
+          {/* Always render progress bar to maintain stable height, start at 0% */}
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-200"
+              style={{
+                width: `${progress.total > 0 ? Math.min(100, (progress.current / progress.total) * 100) : 0}%`,
+              }}
+            />
+          </div>
         </div>
       )}
     </form>
@@ -607,7 +621,7 @@ function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, bloomMod
   )
 }
 
-export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, onRecenter, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange, onNodeSelect, bloomMode = false, onBloomModeChange, showLabels = false, onShowLabelsChange }: GraphControlsProps) {
+export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, onCancel, onRecenter, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange, onNodeSelect, bloomMode = false, onBloomModeChange, showLabels = false, onShowLabelsChange }: GraphControlsProps) {
   const stats = React.useMemo(() => (graphData ? getGraphStats(graphData) : null), [graphData])
   const [apiUrl, setApiUrl] = React.useState("")
   const [apiKey, setApiKey] = React.useState("")
@@ -739,6 +753,10 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
     }
   }
 
+  const handleCancelLoading = () => {
+    onCancel?.()
+  }
+
   return (
     <>
       <AnimatePresence initial={false}>
@@ -746,6 +764,7 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
           // Hamburger button when collapsed
           <motion.div
             key="hamburger"
+            layoutId="sidebar-container"
             className="fixed left-4 z-40"
             style={{ top: "var(--header-offset)" }}
             initial={{ opacity: 0 }}
@@ -756,11 +775,13 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
             }}
           >
             <motion.div
+              layoutId="sidebar-card"
               className="rounded-2xl border bg-card shadow-sm"
               transition={{
-                type: "tween",
-                ease: [0.22, 1, 0.36, 1],
-                duration: 0.22,
+                type: "spring",
+                stiffness: 400,
+                damping: 30,
+                duration: 0.4,
               }}
             >
               <div className="p-2">
@@ -779,6 +800,7 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
           // Full sidebar when expanded
           <motion.div
             key="sidebar"
+            layoutId="sidebar-container"
             className="fixed left-4 right-4 z-40 w-[calc(100%-2rem)] md:right-auto md:w-[320px]"
             style={{ top: "var(--header-offset)" }}
             initial={{ opacity: 0 }}
@@ -791,11 +813,13 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
             <div className="space-y-2">
               {/* Toolbar */}
               <motion.div
+                layoutId="sidebar-card"
                 className="rounded-2xl border bg-card shadow-sm"
                 transition={{
-                  type: "tween",
-                  ease: [0.22, 1, 0.36, 1],
-                  duration: 0.22,
+                  type: "spring",
+                  stiffness: 400,
+                  damping: 30,
+                  duration: 0.4,
                 }}
               >
                 <div className="p-2">
@@ -878,11 +902,10 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
                     exit={{ opacity: 0, y: -10 }}
                     transition={{
                       duration: 0.2,
-                      // Avoid any layout interpolation during internal content updates.
                       layout: { duration: 0 }
                     }}
                   >
-                    <Card className="flex max-h-[calc(100vh-var(--header-offset)-5rem)] flex-col overflow-hidden pt-2 pb-4">
+                    <Card className="flex max-h-[calc(100vh-var(--header-offset)-5rem)] flex-col overflow-hidden pt-2 pb-4" style={{ willChange: 'contents' }}>
                       <div className="node-preview-content flex-1 overflow-y-auto overflow-x-hidden p-4">
                         {activePanel === 'connect' && (
                           <ConnectPanel
@@ -898,6 +921,7 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
                             onConnect={handleConnect}
                             onDisconnect={handleDisconnect}
                             onClearCache={handleClearCache}
+                            onCancelLoading={handleCancelLoading}
                           />
                         )}
                         {activePanel === 'stats' && (

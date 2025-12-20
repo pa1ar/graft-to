@@ -38,7 +38,8 @@ export class CraftGraphFetcher {
 
   private async fetchAPI<T>(
     endpoint: string,
-    params: Record<string, string> = {}
+    params: Record<string, string> = {},
+    signal?: AbortSignal
   ): Promise<T> {
     // Use proxy to avoid CORS issues
     const proxyUrl = new URL('/api/craft' + endpoint, window.location.origin);
@@ -56,7 +57,7 @@ export class CraftGraphFetcher {
       headers['x-craft-key'] = this.config.apiKey;
     }
 
-    const response = await fetch(proxyUrl.toString(), { headers });
+    const response = await fetch(proxyUrl.toString(), { headers, signal });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -74,14 +75,14 @@ export class CraftGraphFetcher {
    * Fetch all documents with a single API call.
    * No location filter = returns ALL documents in the space.
    */
-  async fetchAllDocuments(fetchMetadata = true): Promise<CraftDocument[]> {
+  async fetchAllDocuments(fetchMetadata = true, signal?: AbortSignal): Promise<CraftDocument[]> {
     const params: Record<string, string> = {};
     if (fetchMetadata) {
       params.fetchMetadata = 'true';
     }
     
     console.log('[Fetch] Getting all documents with single API call...');
-    const response = await this.fetchAPI<any>('/documents', params);
+    const response = await this.fetchAPI<any>('/documents', params, signal);
     
     const docs = response.items || response.documents || response;
     if (!Array.isArray(docs)) {
@@ -219,11 +220,11 @@ export class CraftGraphFetcher {
     return null;
   }
 
-  async fetchBlocks(documentId: string, maxDepth = -1): Promise<CraftBlock[]> {
+  async fetchBlocks(documentId: string, maxDepth = -1, signal?: AbortSignal): Promise<CraftBlock[]> {
     const response = await this.fetchAPI<any>('/blocks', {
       id: documentId,
       maxDepth: maxDepth.toString(),
-    });
+    }, signal);
     
     // Handle array response
     if (Array.isArray(response)) {
@@ -775,12 +776,16 @@ export class CraftGraphFetcher {
    * 3. Extract links and build graph
    */
   async buildGraphOptimized(options: GraphBuildStreamingOptions = {}): Promise<GraphBuildResult> {
-    const { maxDepth = -1, excludeDeleted = true, callbacks } = options;
+    const { maxDepth = -1, excludeDeleted = true, callbacks, signal } = options;
+
+    if (signal?.aborted) {
+      throw new Error('Operation aborted');
+    }
 
     callbacks?.onProgress?.(0, 0, 'Fetching documents...');
 
     // Step 1: Fetch all documents in a single call
-    const allDocuments = await this.fetchAllDocuments(true);
+    const allDocuments = await this.fetchAllDocuments(true, signal);
 
     const documents = excludeDeleted
       ? allDocuments.filter(doc => !doc.deleted)
@@ -843,11 +848,17 @@ export class CraftGraphFetcher {
 
     const worker = async () => {
       while (queue.length > 0) {
+        if (signal?.aborted) {
+          break;
+        }
+        
         const doc = queue.shift();
         if (!doc) break;
 
         try {
-          const blocks = await this.fetchBlocks(doc.id, maxDepth);
+          const blocks = await this.fetchBlocks(doc.id, maxDepth, signal);
+          if (signal?.aborted) break;
+          
           addBlocksToMap(doc.id, blocks);
 
           // Extract links from blocks
@@ -879,7 +890,9 @@ export class CraftGraphFetcher {
         }
 
         completed++;
-        callbacks?.onProgress?.(completed, total, `Loading ${doc.title || 'Untitled'} (${completed}/${total})...`);
+        if (!signal?.aborted) {
+          callbacks?.onProgress?.(completed, total, `Loading ${doc.title || 'Untitled'} (${completed}/${total})...`);
+        }
       }
     };
 
@@ -888,6 +901,10 @@ export class CraftGraphFetcher {
         .fill(0)
         .map(() => worker())
     );
+
+    if (signal?.aborted) {
+      throw new Error('Operation aborted');
+    }
 
     // Step 5: Build final graph
     const links: GraphLink[] = [];
@@ -947,12 +964,16 @@ export class CraftGraphFetcher {
     cachedGraphData: GraphData,
     options: GraphBuildStreamingOptions = {}
   ): Promise<GraphUpdateResult> {
-    const { maxDepth = -1, callbacks } = options;
+    const { maxDepth = -1, callbacks, signal } = options;
+
+    if (signal?.aborted) {
+      throw new Error('Operation aborted');
+    }
 
     callbacks?.onProgress?.(0, 0, 'Checking for updates...');
 
     // Fetch current documents
-    const currentDocuments = await this.fetchAllDocuments(true);
+    const currentDocuments = await this.fetchAllDocuments(true, signal);
     const currentDocMap = new Map(currentDocuments.map(doc => [doc.id, doc]));
     const cachedDocMap = new Map(cachedMetadata.map(doc => [doc.id, doc]));
 
@@ -1052,10 +1073,16 @@ export class CraftGraphFetcher {
       const totalWork = docsToProcess.length;
 
       for (const docId of docsToProcess) {
+        if (signal?.aborted) {
+          throw new Error('Operation aborted');
+        }
+        
         const doc = currentDocMap.get(docId);
         if (!doc || doc.deleted) continue;
 
-        callbacks?.onProgress?.(completed + 1, totalWork, `Updating ${doc.title || 'Untitled'}...`);
+        if (!signal?.aborted) {
+          callbacks?.onProgress?.(completed + 1, totalWork, `Updating ${doc.title || 'Untitled'}...`);
+        }
 
         // Remove old links from this document
         linksArray = linksArray.filter(link => {
@@ -1086,7 +1113,9 @@ export class CraftGraphFetcher {
         if (links.length === 0 || links.some(id => !nodesMap.has(id) && !blockToDocMap.has(id))) {
           // Need to fetch blocks to resolve links
           try {
-            const blocks = await this.fetchBlocks(docId, maxDepth);
+            if (signal?.aborted) break;
+            const blocks = await this.fetchBlocks(docId, maxDepth, signal);
+            if (signal?.aborted) break;
             
             const addBlocksToMap = (blocks: CraftBlock[]) => {
               for (const block of blocks) {
@@ -1142,6 +1171,14 @@ export class CraftGraphFetcher {
 
         completed++;
       }
+      
+      if (signal?.aborted) {
+        throw new Error('Operation aborted');
+      }
+    }
+
+    if (signal?.aborted) {
+      throw new Error('Operation aborted');
     }
 
     // Recalculate link counts
@@ -1164,10 +1201,16 @@ export class CraftGraphFetcher {
       links: linksArray,
     };
 
+    if (signal?.aborted) {
+      throw new Error('Operation aborted');
+    }
+
     finalGraphData = rebuildNodeRelationships(finalGraphData);
 
-    callbacks?.onProgress?.(docsToProcess.length, docsToProcess.length, 'Update complete');
-    callbacks?.onComplete?.(finalGraphData);
+    if (!signal?.aborted) {
+      callbacks?.onProgress?.(docsToProcess.length, docsToProcess.length, 'Update complete');
+      callbacks?.onComplete?.(finalGraphData);
+    }
 
     return {
       hasChanges: true,

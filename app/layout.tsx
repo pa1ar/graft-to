@@ -20,10 +20,7 @@ export const metadata: Metadata = {
   title: "Graft - Craft Document Graph",
   description: "Visualize your Craft document connections as an interactive graph",
   manifest: "/site.webmanifest",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#252525" },
-  ],
+  themeColor: "#ffffff",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -43,11 +40,11 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Graft",
   },
   other: {
-    "msapplication-TileColor": "#252525",
+    "msapplication-TileColor": "#ffffff",
   },
 };
 
@@ -57,28 +54,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  const storedTheme = localStorage.getItem('graft-theme');
-                  const theme = storedTheme || (
-                    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-                      ? 'dark'
-                      : 'light'
-                  );
-                  if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                  }
-                } catch (e) {}
-              })();
-            `,
-          }}
-        />
-      </head>
+    <html lang="en" className={inter.variable}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

@@ -39,8 +39,22 @@ export function useCraftGraph() {
     progress: { current: 0, total: 0, message: "" },
     isFromCache: false,
   })
+  const abortControllerRef = React.useRef<AbortController | null>(null)
+  const isCancelledRef = React.useRef(false)
 
   const loadGraph = React.useCallback(async (forceRefresh = false) => {
+    // Reset cancellation flag
+    isCancelledRef.current = false
+    
+    // Abort any existing loading
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    
+    // Create new abort controller for this load
+    abortControllerRef.current = new AbortController()
+    const signal = abortControllerRef.current.signal
+    
     const apiUrl = localStorage.getItem(STORAGE_KEY_URL)
     const apiKey = localStorage.getItem(STORAGE_KEY_KEY)
     
@@ -53,12 +67,16 @@ export function useCraftGraph() {
           error: null,
         }))
         
-        const response = await fetch('/demo-graph.json')
+        const response = await fetch('/demo-graph.json', { signal })
         if (!response.ok) {
           throw new Error('Failed to load demo graph')
         }
         
+        if (signal.aborted) return
+        
         const demoData: GraphData = await response.json()
+        
+        if (signal.aborted) return
         
         setState(prev => ({
           ...prev,
@@ -68,6 +86,7 @@ export function useCraftGraph() {
           isFromCache: false,
         }))
       } catch (err) {
+        if (signal.aborted || isCancelledRef.current) return
         setState(prev => ({
           ...prev,
           error: "Failed to load demo graph",
@@ -80,6 +99,7 @@ export function useCraftGraph() {
     if (!forceRefresh) {
       const cached = await getCachedGraph(apiUrl)
       if (cached) {
+        if (signal.aborted) return
         console.log('[Graph] Loaded from cache')
         setState(prev => ({
           ...prev,
@@ -91,11 +111,14 @@ export function useCraftGraph() {
       }
     }
 
+    if (signal.aborted) return
+
     setState(prev => ({
       ...prev,
       isLoading: true,
       error: null,
       isFromCache: false,
+      progress: { current: 0, total: 0, message: "" },
     }))
 
     try {
@@ -103,6 +126,7 @@ export function useCraftGraph() {
       
       // Build graph - the result includes both graph data and document metadata
       const result = await fetcher.buildGraphOptimized({
+        signal,
         callbacks: {
           onNodesReady: (nodes: GraphNode[]) => {
             console.log('[Graph] Nodes ready:', nodes.length)
@@ -171,6 +195,7 @@ export function useCraftGraph() {
             })
           },
           onProgress: (current, total, message) => {
+            if (signal.aborted || isCancelledRef.current) return
             setState(prev => ({
               ...prev,
               progress: { current, total, message },
@@ -182,6 +207,8 @@ export function useCraftGraph() {
           },
         },
       })
+
+      if (signal.aborted || isCancelledRef.current) return
 
       // Set final state with the complete result
       setState(prev => ({
@@ -195,6 +222,11 @@ export function useCraftGraph() {
         console.warn('[Graph] Failed to cache:', err)
       })
     } catch (err) {
+      if (signal.aborted || isCancelledRef.current) return
+      // Don't show error for aborted operations
+      if (err instanceof Error && err.message === 'Operation aborted') {
+        return
+      }
       setState(prev => ({
         ...prev,
         error: err instanceof Error ? err.message : "Failed to load graph",
@@ -204,6 +236,18 @@ export function useCraftGraph() {
   }, [])
 
   const refreshGraph = React.useCallback(async () => {
+    // Reset cancellation flag
+    isCancelledRef.current = false
+    
+    // Abort any existing loading
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    
+    // Create new abort controller for this refresh
+    abortControllerRef.current = new AbortController()
+    const signal = abortControllerRef.current.signal
+    
     const apiUrl = localStorage.getItem(STORAGE_KEY_URL)
     const apiKey = localStorage.getItem(STORAGE_KEY_KEY)
     
@@ -222,10 +266,13 @@ export function useCraftGraph() {
     const cacheAge = Date.now() - cachedWithMetadata.timestamp
     console.log('[Graph] Incremental refresh (cache age:', Math.round(cacheAge / 1000), 'seconds)')
 
+    if (signal.aborted) return
+
     setState(prev => ({
       ...prev,
       isRefreshing: true,
       error: null,
+      progress: { current: 0, total: 0, message: "" },
     }))
 
     try {
@@ -235,6 +282,7 @@ export function useCraftGraph() {
         cachedWithMetadata.documentMetadata,
         cachedWithMetadata.graphData,
         {
+          signal,
           callbacks: {
             onNodesReady: (nodes: GraphNode[]) => {
               console.log('[Graph] New nodes:', nodes.length)
@@ -312,6 +360,7 @@ export function useCraftGraph() {
               })
             },
             onProgress: (current, total, message) => {
+              if (signal.aborted || isCancelledRef.current) return
               setState(prev => ({
                 ...prev,
                 progress: { current, total, message },
@@ -325,6 +374,8 @@ export function useCraftGraph() {
         }
       )
 
+      if (signal.aborted || isCancelledRef.current) return
+
       // Set final state
       setState(prev => ({
         ...prev,
@@ -337,6 +388,11 @@ export function useCraftGraph() {
         console.warn('[Graph] Failed to cache:', err)
       })
     } catch (err) {
+      if (signal.aborted || isCancelledRef.current) return
+      // Don't show error for aborted operations
+      if (err instanceof Error && err.message === 'Operation aborted') {
+        return
+      }
       console.error('[Graph] Refresh failed:', err)
       setState(prev => ({
         ...prev,
@@ -346,14 +402,31 @@ export function useCraftGraph() {
     }
   }, [loadGraph])
 
+  const cancelLoading = React.useCallback(() => {
+    isCancelledRef.current = true
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    setState(prev => ({
+      ...prev,
+      isLoading: false,
+      isRefreshing: false,
+      progress: { current: 0, total: 0, message: "" },
+    }))
+  }, [])
+
   React.useEffect(() => {
-    loadGraph()
+    // Only auto-load if not cancelled
+    if (!isCancelledRef.current) {
+      loadGraph()
+    }
   }, [loadGraph])
 
   return {
     ...state,
     reload: () => loadGraph(true),
     refresh: refreshGraph,
+    cancel: cancelLoading,
   }
 }
 

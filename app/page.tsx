@@ -33,7 +33,7 @@ const getStoredNumber = (key: string, defaultValue: number): number => {
 }
 
 export default function Page() {
-  const { graphData, isLoading, isRefreshing, error, progress, reload, refresh } = useCraftGraph()
+  const { graphData, isLoading, isRefreshing, error, progress, reload, refresh, cancel } = useCraftGraph()
   const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(null)
   const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
   const [is3D, setIs3D] = React.useState(() => getStoredBoolean(STORAGE_KEY_3D_MODE, false))
@@ -129,6 +129,7 @@ export default function Page() {
         error={error}
         onReload={reload}
         onRefresh={refresh}
+        onCancel={cancel}
         onRecenter={handleRecenter}
         is3DMode={is3D}
         onIs3DModeChange={setIs3D}
