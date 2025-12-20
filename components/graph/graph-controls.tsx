@@ -134,7 +134,7 @@ function ConnectPanel({
           <AccordionContent>
             <div className="space-y-4 text-xs">
               <p>
-                Graft is a read-only, <a href="https://github.com/pa1ar/graft-to" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">open-source</a> graph visualization of your <a href="https://craft.do" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">Craft Docs</a> space.
+                <a href="https://1ar.craft.me/graft" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">Graft</a> is a read-only, <a href="https://github.com/pa1ar/graft-to" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">open-source</a> graph visualization of your <a href="https://craft.do" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">Craft Docs</a> space.
               </p>
               
               <div>
@@ -711,6 +711,12 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
 
       localStorage.setItem(STORAGE_KEY_URL, apiUrl)
       localStorage.setItem(STORAGE_KEY_KEY, apiKey)
+      
+      // Track successful connection
+      track("Connection Success", {
+        timestamp: new Date().toISOString()
+      })
+      
       onReload()
     } catch (err) {
       if (err instanceof TypeError) {

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { track } from "@vercel/analytics/react"
 
 import { ForceGraph, type ForceGraphRef } from "@/components/graph/force-graph"
 import { ForceGraph3DComponent, type ForceGraph3DRef } from "@/components/graph/force-graph-3d"
@@ -44,6 +45,7 @@ export default function Page() {
   
   const graph2DRef = React.useRef<ForceGraphRef>(null)
   const graph3DRef = React.useRef<ForceGraph3DRef>(null)
+  const sessionStartRef = React.useRef<number>(Date.now())
 
   const getHeaderHeight = React.useCallback(() => {
     if (typeof document === "undefined") return HEADER_FALLBACK
@@ -69,6 +71,23 @@ export default function Page() {
       window.removeEventListener(HEADER_EVENT, updateDimensions)
     }
   }, [getHeaderHeight])
+
+  // Track session duration
+  React.useEffect(() => {
+    const trackSessionEnd = () => {
+      const sessionDuration = Math.floor((Date.now() - sessionStartRef.current) / 1000)
+      track("Session End", {
+        duration: sessionDuration,
+        unit: "seconds"
+      })
+    }
+
+    window.addEventListener("beforeunload", trackSessionEnd)
+    
+    return () => {
+      window.removeEventListener("beforeunload", trackSessionEnd)
+    }
+  }, [])
 
   // Save settings to localStorage
   React.useEffect(() => {

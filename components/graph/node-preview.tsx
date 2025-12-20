@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { track } from "@vercel/analytics/react"
 import { IconX, IconExternalLink, IconChevronDown, IconChevronUp } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -119,7 +120,10 @@ export function NodePreview({ node, graphData, onClose, onNodeSelect }: NodePrev
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => window.open(craftUrl, "_blank")}
+              onClick={() => {
+                track("Open in Craft")
+                window.open(craftUrl, "_blank")
+              }}
             >
               <IconExternalLink className="mr-2 h-4 w-4" />
               Open in Craft

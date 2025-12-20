@@ -148,6 +148,35 @@ app/
 - Proxy route forwards requests without logging or persistence
 - No database, no data retention
 
+### Analytics
+
+Graft uses [Vercel Analytics](https://vercel.com/analytics) to collect anonymous usage metrics. This helps us understand how the application is being used and identify areas for improvement.
+
+**What we collect:**
+- Page views and navigation patterns
+- Basic device information (browser type, screen size)
+- Performance metrics (page load times, Core Web Vitals)
+- Geographic region (country-level, not precise location)
+- Custom events:
+  - "Connection Success": Tracks when a user successfully connects to Craft API (timestamp only, no credentials or user data)
+  - "Session End": Tracks session duration in seconds when user leaves the page
+  - "Open in Craft": Tracks when users click to open a document in Craft app (only the click count, no document information)
+
+**What we do NOT collect:**
+- Content from your Craft documents
+- Your Craft API credentials or API keys
+- Document titles, IDs, or any document metadata
+- Any data stored in your browser's `localStorage` or `IndexedDB`
+- Personal information (names, email addresses, IP addresses)
+
+**Privacy notes:**
+- All analytics data is aggregated and anonymized
+- No personal data is sent to 3rd party telemetry services
+- Your Craft document content never leaves your browser
+- You can block analytics using ad blockers or browser privacy settings - the application will continue to function normally
+
+The analytics script is served from `/_vercel/insights/script.js` and may be blocked by privacy-focused browser extensions. This is expected behavior and will not affect the functionality of Graft. Feel free to review the code to check our claims. If you find any issues, please let us know.
+
 ## License
 
 MIT
