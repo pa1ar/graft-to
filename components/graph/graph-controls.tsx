@@ -763,7 +763,7 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
         {sidebarCollapsed ? (
           // Hamburger button when collapsed
           <motion.div
-            key="hamburger"
+            key="sidebar-container"
             layoutId="sidebar-container"
             className="fixed left-4 z-40"
             style={{ top: "var(--header-offset)" }}
@@ -799,7 +799,7 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
         ) : (
           // Full sidebar when expanded
           <motion.div
-            key="sidebar"
+            key="sidebar-container"
             layoutId="sidebar-container"
             className="fixed left-4 right-4 z-40 w-[calc(100%-2rem)] md:right-auto md:w-[320px]"
             style={{ top: "var(--header-offset)" }}
