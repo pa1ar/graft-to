@@ -288,18 +288,35 @@ export const ForceGraph = React.forwardRef<ForceGraphRef, ForceGraphProps>(
 
   // Node color function
   const getNodeColor = (node: any) => {
+    // Use node's color property for tags/folders
+    if (node.color) {
+      const activeNode = getActiveNode()
+      if (!activeNode) return node.color
+
+      if (node.id === activeNode.id) {
+        return colors.nodeHighlight
+      }
+
+      if (!isNodeConnected(node.id)) {
+        return hexToRgba(node.color, muteOpacity)
+      }
+
+      return node.color
+    }
+
+    // Default color logic for document/block nodes
     const activeNode = getActiveNode()
     if (!activeNode) return colors.node
-    
+
     if (node.id === activeNode.id) {
       return colors.nodeHighlight
     }
-    
+
     // Mute nodes that aren't connected to the active node
     if (!isNodeConnected(node.id)) {
       return hexToRgba(colors.node, muteOpacity)
     }
-    
+
     return colors.node
   }
 
@@ -372,7 +389,7 @@ export const ForceGraph = React.forwardRef<ForceGraphRef, ForceGraphProps>(
       nodeLabel={(node: any) => node.title}
       nodeColor={getNodeColor}
       nodeRelSize={4}
-      nodeVal={2}
+      nodeVal={(node: any) => (node.nodeSize || 1) * 2}
       linkColor={getLinkColor}
       linkWidth={getLinkWidth}
       linkDirectionalParticles={0}

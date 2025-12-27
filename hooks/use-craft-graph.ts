@@ -127,6 +127,8 @@ export function useCraftGraph() {
       // Build graph - the result includes both graph data and document metadata
       const result = await fetcher.buildGraphOptimized({
         signal,
+        includeTags: true,
+        includeFolders: true,
         callbacks: {
           onNodesReady: (nodes: GraphNode[]) => {
             console.log('[Graph] Nodes ready:', nodes.length)
@@ -178,7 +180,8 @@ export function useCraftGraph() {
                 return {
                   ...node,
                   linkCount,
-                  color: calculateNodeColor(linkCount),
+                  // Preserve existing color for tags/folders, otherwise calculate based on linkCount
+                  color: node.color || calculateNodeColor(linkCount),
                 };
               })
               
@@ -283,6 +286,8 @@ export function useCraftGraph() {
         cachedWithMetadata.graphData,
         {
           signal,
+          includeTags: true,
+          includeFolders: true,
           callbacks: {
             onNodesReady: (nodes: GraphNode[]) => {
               console.log('[Graph] New nodes:', nodes.length)
@@ -343,7 +348,8 @@ export function useCraftGraph() {
                   return {
                     ...node,
                     linkCount,
-                    color: calculateNodeColor(linkCount),
+                    // Preserve existing color for tags/folders, otherwise calculate based on linkCount
+                    color: node.color || calculateNodeColor(linkCount),
                   };
                 })
                 

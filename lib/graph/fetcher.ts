@@ -16,7 +16,7 @@ import type {
   GraphUpdateResult,
   GraphBuildResult,
 } from './types';
-import { buildGraphData, calculateNodeColor, extractLinksFromBlock, rebuildNodeRelationships, extractBlockLinks } from './parser';
+import { buildGraphData, calculateNodeColor, extractLinksFromBlock, rebuildNodeRelationships, extractBlockLinks, extractTagsFromBlock } from './parser';
 
 export class CraftAPIError extends Error {
   constructor(
@@ -284,6 +284,133 @@ export class CraftGraphFetcher {
     );
     
     return results;
+  }
+
+  async fetchFolders(signal?: AbortSignal): Promise<import('./types').CraftFolder[]> {
+    try {
+      console.log('[Fetch] Getting folder structure...');
+      const response = await this.fetchAPI<import('./types').CraftFolderResponse>('/folders', {}, signal);
+
+      const folders = response.items || [];
+      if (!Array.isArray(folders)) {
+        console.warn('[Fetch] Unexpected folders response:', response);
+        return [];
+      }
+
+      console.log(`[Fetch] Got ${folders.length} top-level folders`);
+      return folders;
+    } catch (error) {
+      console.warn('[Fetch] Failed to fetch folders:', error);
+      return [];
+    }
+  }
+
+  private async buildDocumentToFolderMap(
+    folders: import('./types').CraftFolder[],
+    signal?: AbortSignal
+  ): Promise<Map<string, string>> {
+    const docToFolder = new Map<string, string>();
+
+    // Flatten folder hierarchy to get all folder IDs
+    const allFolders: import('./types').CraftFolder[] = [];
+    const flattenFolders = (folders: import('./types').CraftFolder[]) => {
+      for (const folder of folders) {
+        allFolders.push(folder);
+        if (folder.folders && folder.folders.length > 0) {
+          flattenFolders(folder.folders);
+        }
+      }
+    };
+    flattenFolders(folders);
+
+    // Fetch documents for each folder
+    for (const folder of allFolders) {
+      try {
+        // GET /documents?folderId={folderId}
+        const response = await this.fetchAPI<any>('/documents', {
+          folderId: folder.id
+        }, signal);
+
+        const docs = response.items || [];
+        for (const doc of docs) {
+          docToFolder.set(doc.id, folder.id);
+        }
+      } catch (error) {
+        console.warn(`[Fetch] Failed to fetch documents for folder ${folder.id}:`, error);
+      }
+    }
+
+    return docToFolder;
+  }
+
+  private addFolderNodesToGraph(
+    graphData: import('./types').GraphData,
+    folders: import('./types').CraftFolder[],
+    docToFolderMap: Map<string, string>
+  ): import('./types').GraphData {
+    const nodesMap = new Map(graphData.nodes.map(n => [n.id, n]));
+    const links = [...graphData.links];
+
+    // Flatten folder hierarchy
+    const allFolders: Array<import('./types').CraftFolder & { fullPath: string }> = [];
+    const flattenFolders = (folders: import('./types').CraftFolder[], parentPath = '') => {
+      for (const folder of folders) {
+        const fullPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
+        allFolders.push({ ...folder, fullPath });
+        if (folder.folders && folder.folders.length > 0) {
+          flattenFolders(folder.folders, fullPath);
+        }
+      }
+    };
+    flattenFolders(folders);
+
+    // Create folder nodes (star topology)
+    for (const folder of allFolders) {
+      const docsInFolder = Array.from(docToFolderMap.entries())
+        .filter(([_, fid]) => fid === folder.id)
+        .map(([docId, _]) => docId);
+
+      if (docsInFolder.length === 0) continue;
+
+      const folderId = `folder:${folder.id}`;
+
+      nodesMap.set(folderId, {
+        id: folderId,
+        title: folder.fullPath,
+        type: 'folder',
+        linkCount: 0,
+        color: '#60a5fa',
+        nodeSize: 1.5,
+        metadata: {
+          folderPath: folder.fullPath,
+        },
+      });
+
+      // Create links from folder to documents
+      for (const docId of docsInFolder) {
+        if (nodesMap.has(docId)) {
+          links.push({ source: folderId, target: docId });
+        }
+      }
+    }
+
+    // Recalculate link counts
+    const linkCounts = new Map<string, number>();
+    for (const link of links) {
+      const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
+      const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+      linkCounts.set(sourceId, (linkCounts.get(sourceId) || 0) + 1);
+      linkCounts.set(targetId, (linkCounts.get(targetId) || 0) + 1);
+    }
+
+    nodesMap.forEach((node, id) => {
+      node.linkCount = linkCounts.get(id) || node.linkCount || 0;
+    });
+
+    return {
+      nodes: Array.from(nodesMap.values()),
+      links,
+    };
   }
 
   async buildGraphStreaming(options: GraphBuildStreamingOptions = {}): Promise<GraphData> {
@@ -776,7 +903,14 @@ export class CraftGraphFetcher {
    * 3. Extract links and build graph
    */
   async buildGraphOptimized(options: GraphBuildStreamingOptions = {}): Promise<GraphBuildResult> {
-    const { maxDepth = -1, excludeDeleted = true, callbacks, signal } = options;
+    const {
+      maxDepth = -1,
+      excludeDeleted = true,
+      callbacks,
+      signal,
+      includeTags = false,
+      includeFolders = false
+    } = options;
 
     if (signal?.aborted) {
       throw new Error('Operation aborted');
@@ -828,8 +962,24 @@ export class CraftGraphFetcher {
 
     callbacks?.onNodesReady?.(Array.from(nodesMap.values()));
 
+    // Step 2.5: Fetch folders if enabled
+    let folders: import('./types').CraftFolder[] = [];
+    let docToFolderMap = new Map<string, string>();
+
+    if (includeFolders) {
+      callbacks?.onProgress?.(0, 0, 'Fetching folder structure...');
+      folders = await this.fetchFolders(signal);
+
+      if (folders.length > 0) {
+        callbacks?.onProgress?.(0, 0, 'Mapping documents to folders...');
+        docToFolderMap = await this.buildDocumentToFolderMap(folders, signal);
+      }
+    }
+
     // Step 3: Fetch blocks for all documents in parallel
     const linksMap = new Map<string, Set<string>>();
+    const tagToDocumentsMap = new Map<string, Set<string>>();
+    const blocksMap = new Map<string, CraftBlock[]>();
     let completed = 0;
     const total = documents.length;
 
@@ -858,8 +1008,9 @@ export class CraftGraphFetcher {
         try {
           const blocks = await this.fetchBlocks(doc.id, maxDepth, signal);
           if (signal?.aborted) break;
-          
+
           addBlocksToMap(doc.id, blocks);
+          blocksMap.set(doc.id, blocks);
 
           // Extract links from blocks
           const docLinks = new Set<string>();
@@ -873,14 +1024,31 @@ export class CraftGraphFetcher {
             }
           }
 
+          // Extract tags from blocks if enabled
+          if (includeTags) {
+            const docTags = new Set<string>();
+            for (const block of blocks) {
+              const tags = extractTagsFromBlock(block);
+              tags.forEach(tag => docTags.add(tag));
+            }
+
+            // Map tags to documents
+            docTags.forEach(tag => {
+              if (!tagToDocumentsMap.has(tag)) {
+                tagToDocumentsMap.set(tag, new Set());
+              }
+              tagToDocumentsMap.get(tag)!.add(doc.id);
+            });
+          }
+
           if (docLinks.size > 0) {
             linksMap.set(doc.id, docLinks);
-            
+
             // Emit links as they're discovered
             const newLinks = Array.from(docLinks)
               .filter(targetId => nodesMap.has(targetId))
               .map(targetId => ({ source: doc.id, target: targetId }));
-            
+
             if (newLinks.length > 0) {
               callbacks?.onLinksDiscovered?.(newLinks);
             }
@@ -904,6 +1072,36 @@ export class CraftGraphFetcher {
 
     if (signal?.aborted) {
       throw new Error('Operation aborted');
+    }
+
+    // Step 4: Create tag nodes if enabled
+    if (includeTags && tagToDocumentsMap.size > 0) {
+      callbacks?.onProgress?.(0, 0, 'Creating tag nodes...');
+
+      for (const [tagPath, documentIds] of tagToDocumentsMap.entries()) {
+        const tagId = `tag:${tagPath}`;
+
+        nodesMap.set(tagId, {
+          id: tagId,
+          title: `#${tagPath}`,
+          type: 'tag',
+          linkCount: 0,
+          color: '#34d399',
+          nodeSize: 1.5,
+          metadata: {
+            tagPath,
+            isNestedTag: tagPath.includes('/'),
+          },
+        });
+
+        // Create links from tag to all documents
+        if (!linksMap.has(tagId)) {
+          linksMap.set(tagId, new Set());
+        }
+        for (const docId of documentIds) {
+          linksMap.get(tagId)!.add(docId);
+        }
+      }
     }
 
     // Step 5: Build final graph
@@ -947,6 +1145,12 @@ export class CraftGraphFetcher {
       nodes: Array.from(nodesMap.values()),
       links,
     };
+
+    // Add folders if enabled
+    if (includeFolders && folders.length > 0) {
+      callbacks?.onProgress?.(0, 0, 'Adding folder nodes...');
+      graphData = this.addFolderNodesToGraph(graphData, folders, docToFolderMap);
+    }
 
     graphData = rebuildNodeRelationships(graphData);
 

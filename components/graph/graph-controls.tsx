@@ -23,7 +23,8 @@ import {
   IconPoint,
   IconEyeOff,
   IconFocus,
-  IconX
+  IconX,
+  IconCheck
 } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
@@ -90,6 +91,12 @@ interface GraphControlsProps {
   onBloomModeChange?: (bloomMode: boolean) => void
   showLabels?: boolean
   onShowLabelsChange?: (showLabels: boolean) => void
+  showWikilinks?: boolean
+  onShowWikilinksChange?: (show: boolean) => void
+  showTags?: boolean
+  onShowTagsChange?: (show: boolean) => void
+  showFolders?: boolean
+  onShowFoldersChange?: (show: boolean) => void
 }
 
 type PanelType = 'connect' | 'stats' | 'search' | 'customize' | null
@@ -408,15 +415,40 @@ interface CustomizePanelProps {
   orbitSpeed: number
   bloomMode: boolean
   showLabels: boolean
+  showWikilinks: boolean
+  showTags: boolean
+  showFolders: boolean
   onThemeChange: (isDark: boolean) => void
   on3DModeChange: (is3D: boolean) => void
   onOrbitingChange: (isOrbiting: boolean) => void
   onOrbitSpeedChange: (speed: number) => void
   onBloomModeChange: (bloomMode: boolean) => void
   onShowLabelsChange: (showLabels: boolean) => void
+  onWikilinksChange: (show: boolean) => void
+  onTagsChange: (show: boolean) => void
+  onFoldersChange: (show: boolean) => void
 }
 
-function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, bloomMode, showLabels, onThemeChange, on3DModeChange, onOrbitingChange, onOrbitSpeedChange, onBloomModeChange, onShowLabelsChange }: CustomizePanelProps) {
+function CustomizePanel({
+  isDarkMode,
+  is3DMode,
+  isOrbiting,
+  orbitSpeed,
+  bloomMode,
+  showLabels,
+  showWikilinks,
+  showTags,
+  showFolders,
+  onThemeChange,
+  on3DModeChange,
+  onOrbitingChange,
+  onOrbitSpeedChange,
+  onBloomModeChange,
+  onShowLabelsChange,
+  onWikilinksChange,
+  onTagsChange,
+  onFoldersChange
+}: CustomizePanelProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -489,7 +521,51 @@ function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, bloomMod
           </button>
         </div>
       </div>
-      
+
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Linking Type</p>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => onWikilinksChange(!showWikilinks)}
+            className={`flex w-full items-center justify-between rounded-lg border-2 bg-transparent p-3 transition-all duration-300 ease-in-out ${
+              showWikilinks
+                ? 'border-primary text-primary'
+                : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <span className="text-sm font-medium">Wikilinks</span>
+            {showWikilinks ? <IconCheck className="h-4 w-4" /> : <IconX className="h-4 w-4" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onTagsChange(!showTags)}
+            className={`flex w-full items-center justify-between rounded-lg border-2 bg-transparent p-3 transition-all duration-300 ease-in-out ${
+              showTags
+                ? 'border-primary text-primary'
+                : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <span className="text-sm font-medium">Tags</span>
+            {showTags ? <IconCheck className="h-4 w-4" /> : <IconX className="h-4 w-4" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onFoldersChange(!showFolders)}
+            className={`flex w-full items-center justify-between rounded-lg border-2 bg-transparent p-3 transition-all duration-300 ease-in-out ${
+              showFolders
+                ? 'border-primary text-primary'
+                : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+            }`}
+          >
+            <span className="text-sm font-medium">Folders</span>
+            {showFolders ? <IconCheck className="h-4 w-4" /> : <IconX className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
       <div className="space-y-2">
         <p className="text-sm font-medium">View Mode</p>
         <div className="grid grid-cols-2 gap-2">
@@ -621,7 +697,34 @@ function CustomizePanel({ isDarkMode, is3DMode, isOrbiting, orbitSpeed, bloomMod
   )
 }
 
-export function GraphControls({ graphData, isLoading, isRefreshing, progress, error, onReload, onRefresh, onCancel, onRecenter, is3DMode = false, onIs3DModeChange, isOrbiting = false, onIsOrbitingChange, orbitSpeed = 1, onOrbitSpeedChange, onNodeSelect, bloomMode = false, onBloomModeChange, showLabels = false, onShowLabelsChange }: GraphControlsProps) {
+export function GraphControls({
+  graphData,
+  isLoading,
+  isRefreshing,
+  progress,
+  error,
+  onReload,
+  onRefresh,
+  onCancel,
+  onRecenter,
+  is3DMode = false,
+  onIs3DModeChange,
+  isOrbiting = false,
+  onIsOrbitingChange,
+  orbitSpeed = 1,
+  onOrbitSpeedChange,
+  onNodeSelect,
+  bloomMode = false,
+  onBloomModeChange,
+  showLabels = false,
+  onShowLabelsChange,
+  showWikilinks = true,
+  onShowWikilinksChange,
+  showTags = false,
+  onShowTagsChange,
+  showFolders = false,
+  onShowFoldersChange
+}: GraphControlsProps) {
   const stats = React.useMemo(() => (graphData ? getGraphStats(graphData) : null), [graphData])
   const [apiUrl, setApiUrl] = React.useState("")
   const [apiKey, setApiKey] = React.useState("")
@@ -940,19 +1043,25 @@ export function GraphControls({ graphData, isLoading, isRefreshing, progress, er
                           />
                         )}
                         {activePanel === 'customize' && (
-                          <CustomizePanel 
+                          <CustomizePanel
                             isDarkMode={isDarkMode}
                             is3DMode={is3DMode}
                             isOrbiting={isOrbiting}
                             orbitSpeed={orbitSpeed}
                             bloomMode={bloomMode}
                             showLabels={showLabels}
+                            showWikilinks={showWikilinks ?? true}
+                            showTags={showTags ?? false}
+                            showFolders={showFolders ?? false}
                             onThemeChange={handleThemeChange}
                             on3DModeChange={handle3DModeChange}
                             onOrbitingChange={handleOrbitingChange}
                             onOrbitSpeedChange={handleOrbitSpeedChange}
                             onBloomModeChange={onBloomModeChange || (() => {})}
                             onShowLabelsChange={onShowLabelsChange || (() => {})}
+                            onWikilinksChange={onShowWikilinksChange || (() => {})}
+                            onTagsChange={onShowTagsChange || (() => {})}
+                            onFoldersChange={onShowFoldersChange || (() => {})}
                           />
                         )}
                       </div>

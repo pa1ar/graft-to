@@ -8,35 +8,79 @@ import type { CraftBlock, GraphNode, GraphLink, GraphData } from './types';
 // Match markdown links with block:// URLs: [text](block://ID)
 const BLOCK_LINK_REGEX = /\[([^\]]+)\]\(block:\/\/([^)]+)\)/g;
 
+// Match hashtags: #tag or #nested/tag
+const HASHTAG_REGEX = /#([a-zA-Z0-9_]+(?:\/[a-zA-Z0-9_]+)*)/g;
+
 export function extractBlockLinks(markdown: string): string[] {
   const links: string[] = [];
   let match;
-  
+
   // Reset regex state
   BLOCK_LINK_REGEX.lastIndex = 0;
-  
+
   while ((match = BLOCK_LINK_REGEX.exec(markdown)) !== null) {
     // match[2] contains the block ID
     links.push(match[2]);
   }
-  
+
   return links;
+}
+
+export function extractHashtags(markdown: string): string[] {
+  const tags: string[] = [];
+  let match;
+
+  HASHTAG_REGEX.lastIndex = 0;
+
+  while ((match = HASHTAG_REGEX.exec(markdown)) !== null) {
+    const fullTag = match[1]; // e.g., "project/work"
+    tags.push(fullTag);
+
+    // For nested tags, also create parent tags
+    if (fullTag.includes('/')) {
+      const parts = fullTag.split('/');
+      for (let i = 1; i < parts.length; i++) {
+        const parentTag = parts.slice(0, i).join('/');
+        if (!tags.includes(parentTag)) {
+          tags.push(parentTag);
+        }
+      }
+    }
+  }
+
+  return [...new Set(tags)];
 }
 
 export function extractLinksFromBlock(block: CraftBlock): string[] {
   const links: string[] = [];
-  
+
   if (block.markdown) {
     links.push(...extractBlockLinks(block.markdown));
   }
-  
+
   if (block.content) {
     for (const childBlock of block.content) {
       links.push(...extractLinksFromBlock(childBlock));
     }
   }
-  
+
   return links;
+}
+
+export function extractTagsFromBlock(block: CraftBlock): string[] {
+  const tags: string[] = [];
+
+  if (block.markdown) {
+    tags.push(...extractHashtags(block.markdown));
+  }
+
+  if (block.content) {
+    for (const childBlock of block.content) {
+      tags.push(...extractTagsFromBlock(childBlock));
+    }
+  }
+
+  return [...new Set(tags)];
 }
 
 function buildBlockToDocumentMap(
@@ -68,11 +112,13 @@ function buildBlockToDocumentMap(
 
 export function buildGraphData(
   documents: Array<{ id: string; title: string; clickableLink?: string }>,
-  blocksMap: Map<string, CraftBlock[]>
+  blocksMap: Map<string, CraftBlock[]>,
+  options?: { includeTags?: boolean; includeFolders?: boolean }
 ): GraphData {
+  const { includeTags = false, includeFolders = false } = options || {};
   const nodesMap = new Map<string, GraphNode>();
   const linksMap = new Map<string, Set<string>>();
-  
+
   const blockToDoc = buildBlockToDocumentMap(documents, blocksMap);
   
   for (const doc of documents) {
@@ -116,22 +162,72 @@ export function buildGraphData(
     }
   }
   
+  // Extract tags from all documents if enabled
+  const tagToDocumentsMap = new Map<string, Set<string>>();
+
+  if (includeTags) {
+    for (const doc of documents) {
+      const blocks = blocksMap.get(doc.id);
+      if (!blocks) continue;
+
+      const docTags = new Set<string>();
+      for (const block of blocks) {
+        const blockTags = extractTagsFromBlock(block);
+        blockTags.forEach(tag => docTags.add(tag));
+      }
+
+      // Map tags to documents
+      docTags.forEach(tag => {
+        if (!tagToDocumentsMap.has(tag)) {
+          tagToDocumentsMap.set(tag, new Set());
+        }
+        tagToDocumentsMap.get(tag)!.add(doc.id);
+      });
+    }
+
+    // Create tag nodes (star topology)
+    for (const [tagPath, documentIds] of tagToDocumentsMap.entries()) {
+      const tagId = `tag:${tagPath}`;
+
+      nodesMap.set(tagId, {
+        id: tagId,
+        title: `#${tagPath}`,
+        type: 'tag',
+        linkCount: 0,
+        color: '#34d399',
+        nodeSize: 1.5,
+        metadata: {
+          tagPath,
+          isNestedTag: tagPath.includes('/'),
+        },
+      });
+
+      // Create links from tag to all documents
+      if (!linksMap.has(tagId)) {
+        linksMap.set(tagId, new Set());
+      }
+      for (const docId of documentIds) {
+        linksMap.get(tagId)!.add(docId);
+      }
+    }
+  }
+
   const links: GraphLink[] = [];
-  
+
   // Build links and track relationships
   for (const [source, targets] of linksMap.entries()) {
     const sourceNode = nodesMap.get(source);
     if (sourceNode) {
       sourceNode.linksTo = Array.from(targets);
     }
-    
+
     for (const target of targets) {
       if (source !== target) {
         links.push({ source, target });
-        
+
         const sourceNode = nodesMap.get(source);
         const targetNode = nodesMap.get(target);
-        
+
         if (sourceNode) sourceNode.linkCount++;
         if (targetNode) {
           targetNode.linkCount++;
@@ -144,7 +240,7 @@ export function buildGraphData(
       }
     }
   }
-  
+
   return {
     nodes: Array.from(nodesMap.values()),
     links,

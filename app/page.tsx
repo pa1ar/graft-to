@@ -19,6 +19,9 @@ const STORAGE_KEY_ORBITING = "graft_orbiting"
 const STORAGE_KEY_ORBIT_SPEED = "graft_orbit_speed"
 const STORAGE_KEY_BLOOM_MODE = "graft_bloom_mode"
 const STORAGE_KEY_SHOW_LABELS = "graft_show_labels"
+const STORAGE_KEY_SHOW_WIKILINKS = "graft_show_wikilinks"
+const STORAGE_KEY_SHOW_TAGS = "graft_show_tags"
+const STORAGE_KEY_SHOW_FOLDERS = "graft_show_folders"
 
 const getStoredBoolean = (key: string, defaultValue: boolean): boolean => {
   if (typeof window === "undefined") return defaultValue
@@ -42,7 +45,10 @@ export default function Page() {
   const [orbitSpeed, setOrbitSpeed] = React.useState(() => getStoredNumber(STORAGE_KEY_ORBIT_SPEED, 1))
   const [bloomMode, setBloomMode] = React.useState(() => getStoredBoolean(STORAGE_KEY_BLOOM_MODE, false))
   const [showLabels, setShowLabels] = React.useState(() => getStoredBoolean(STORAGE_KEY_SHOW_LABELS, false))
-  
+  const [showWikilinks, setShowWikilinks] = React.useState(() => getStoredBoolean(STORAGE_KEY_SHOW_WIKILINKS, true))
+  const [showTags, setShowTags] = React.useState(() => getStoredBoolean(STORAGE_KEY_SHOW_TAGS, false))
+  const [showFolders, setShowFolders] = React.useState(() => getStoredBoolean(STORAGE_KEY_SHOW_FOLDERS, false))
+
   const graph2DRef = React.useRef<ForceGraphRef>(null)
   const graph3DRef = React.useRef<ForceGraph3DRef>(null)
   const sessionStartRef = React.useRef<number>(Date.now())
@@ -110,6 +116,18 @@ export default function Page() {
     localStorage.setItem(STORAGE_KEY_SHOW_LABELS, String(showLabels))
   }, [showLabels])
 
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SHOW_WIKILINKS, String(showWikilinks))
+  }, [showWikilinks])
+
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SHOW_TAGS, String(showTags))
+  }, [showTags])
+
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SHOW_FOLDERS, String(showFolders))
+  }, [showFolders])
+
   // Disable orbit and bloom mode when switching to 2D mode
   React.useEffect(() => {
     if (!is3D) {
@@ -121,6 +139,40 @@ export default function Page() {
       }
     }
   }, [is3D, isOrbiting, bloomMode])
+
+  // Filter graph data based on linking type toggles
+  const filteredGraphData = React.useMemo(() => {
+    if (!graphData) return null;
+
+    const nodes = graphData.nodes.filter(node => {
+      if (node.type === 'tag') return showTags;
+      if (node.type === 'folder') return showFolders;
+      return true; // Always show documents/blocks
+    });
+
+    const nodeIds = new Set(nodes.map(n => n.id));
+
+    const links = graphData.links.filter(link => {
+      const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
+      const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+
+      if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) return false;
+
+      // Filter wikilinks (document-to-document connections)
+      const sourceNode = graphData.nodes.find(n => n.id === sourceId);
+      const targetNode = graphData.nodes.find(n => n.id === targetId);
+
+      if (!showWikilinks &&
+          sourceNode?.type === 'document' &&
+          targetNode?.type === 'document') {
+        return false;
+      }
+
+      return true;
+    });
+
+    return { nodes, links };
+  }, [graphData, showWikilinks, showTags, showFolders]);
 
   const handleNodeSelect = React.useCallback((nodeId: string) => {
     if (!graphData) return
@@ -161,12 +213,18 @@ export default function Page() {
         onBloomModeChange={setBloomMode}
         showLabels={showLabels}
         onShowLabelsChange={setShowLabels}
+        showWikilinks={showWikilinks}
+        onShowWikilinksChange={setShowWikilinks}
+        showTags={showTags}
+        onShowTagsChange={setShowTags}
+        showFolders={showFolders}
+        onShowFoldersChange={setShowFolders}
       />
       
       {is3D ? (
         <ForceGraph3DComponent
           ref={graph3DRef}
-          data={graphData ?? EMPTY_GRAPH}
+          data={filteredGraphData ?? EMPTY_GRAPH}
           onNodeClick={setSelectedNode}
           onBackgroundClick={() => setSelectedNode(null)}
           selectedNode={selectedNode}
@@ -180,7 +238,7 @@ export default function Page() {
       ) : (
         <ForceGraph
           ref={graph2DRef}
-          data={graphData ?? EMPTY_GRAPH}
+          data={filteredGraphData ?? EMPTY_GRAPH}
           onNodeClick={setSelectedNode}
           onBackgroundClick={() => setSelectedNode(null)}
           selectedNode={selectedNode}

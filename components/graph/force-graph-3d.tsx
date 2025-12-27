@@ -307,20 +307,32 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
       const linkCount = node.linkCount ?? 0
       return getBloomNodeColor(linkCount)
     }
-    
+
     // In new year mode, always use node's color property for colorful display
     if (newYearMode) {
       return node.color || colors.node
     }
-    
-    // Normal mode: use theme-based colors with highlighting
+
+    // Normal mode: use node's color property for tags/folders if available
+    if (node.color) {
+      const activeNode = getActiveNode()
+      if (!activeNode) return node.color
+
+      if (node.id === activeNode.id) {
+        return colors.nodeHighlight
+      }
+
+      return node.color
+    }
+
+    // Default theme-based colors with highlighting
     const activeNode = getActiveNode()
     if (!activeNode) return colors.node
-    
+
     if (node.id === activeNode.id) {
       return colors.nodeHighlight
     }
-    
+
     return colors.node
   }, [bloomMode, newYearMode, colors, selectedNode, hoveredNode, getBloomNodeColor])
 
@@ -364,8 +376,10 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
     // Don't create sprites at all when labels are hidden
     if (!showLabels) return undefined
     if (typeof window === "undefined" || !SpriteText) return undefined
-    
+
     const sprite = new SpriteText(node.title)
+    const nodeSize = node.nodeSize || 1
+
     // Use appropriate color based on mode - will be updated by effect
     if (bloomMode) {
       const linkCount = node.linkCount ?? 0
@@ -375,8 +389,8 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
     } else {
       sprite.color = colors.node
     }
-    sprite.textHeight = 8
-    sprite.center.y = -0.6
+    sprite.textHeight = 8 * nodeSize
+    sprite.center.y = -0.6 * nodeSize
     // Remove background rectangles - SpriteText should accept null or false
     sprite.backgroundColor = null
     if (sprite.material) {
@@ -384,7 +398,7 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
       sprite.material.opacity = 1
       sprite.material.depthWrite = false
     }
-    
+
     // Exclude labels from bloom effect by assigning them to layer 1
     // and ensuring material doesn't contribute to bloom
     if (bloomMode || newYearMode) {
@@ -398,10 +412,10 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
         }
       }
     }
-    
+
     // Store reference for updates
     spriteMapRef.current.set(node.id, sprite)
-    
+
     return sprite
   }, [colors, newYearMode, bloomMode, getBloomNodeColor, showLabels])
 
@@ -619,6 +633,7 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
       linkTarget="target"
       nodeLabel={(node: any) => node.title}
       nodeColor={getNodeColor}
+      nodeVal={(node: any) => (node.nodeSize || 1)}
       nodeThreeObject={showLabels ? nodeThreeObject : undefined}
       nodeThreeObjectExtend={true}
       linkColor={getLinkColor}

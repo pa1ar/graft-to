@@ -15,6 +15,13 @@ interface CraftDocument {
   deleted?: boolean;
 }
 
+interface CraftFolder {
+  id: string;
+  name: string;
+  documentCount: number;
+  folders?: CraftFolder[];
+}
+
 interface CraftBlock {
   id: string;
   type: string;
@@ -25,7 +32,7 @@ interface CraftBlock {
 interface GraphNode {
   id: string;
   title: string;
-  type: 'document' | 'block';
+  type: 'document' | 'block' | 'tag' | 'folder';
   linkCount: number;
   color?: string;
   linksTo?: string[];
@@ -33,6 +40,12 @@ interface GraphNode {
   clickableLink?: string;
   createdAt?: string;
   lastModifiedAt?: string;
+  nodeSize?: number;
+  metadata?: {
+    tagPath?: string;
+    isNestedTag?: boolean;
+    folderPath?: string;
+  };
 }
 
 interface GraphLink {
@@ -46,6 +59,7 @@ interface GraphData {
 }
 
 const BLOCK_LINK_REGEX = /\[([^\]]+)\]\(block:\/\/([^)]+)\)/g;
+const HASHTAG_REGEX = /#([a-zA-Z0-9_]+(?:\/[a-zA-Z0-9_]+)*)/g;
 
 function extractBlockLinks(markdown: string): string[] {
   const links: string[] = [];
@@ -55,6 +69,28 @@ function extractBlockLinks(markdown: string): string[] {
     links.push(match[2]);
   }
   return links;
+}
+
+function extractHashtags(markdown: string): string[] {
+  const tags: string[] = [];
+  let match;
+  HASHTAG_REGEX.lastIndex = 0;
+  while ((match = HASHTAG_REGEX.exec(markdown)) !== null) {
+    const fullTag = match[1]; // e.g., "project/work"
+    tags.push(fullTag);
+
+    // For nested tags, also create parent tags
+    if (fullTag.includes('/')) {
+      const parts = fullTag.split('/');
+      for (let i = 1; i < parts.length; i++) {
+        const parentTag = parts.slice(0, i).join('/');
+        if (!tags.includes(parentTag)) {
+          tags.push(parentTag);
+        }
+      }
+    }
+  }
+  return [...new Set(tags)];
 }
 
 function extractLinksFromBlock(block: CraftBlock): string[] {
@@ -68,6 +104,19 @@ function extractLinksFromBlock(block: CraftBlock): string[] {
     }
   }
   return links;
+}
+
+function extractTagsFromBlock(block: CraftBlock): string[] {
+  const tags: string[] = [];
+  if (block.markdown) {
+    tags.push(...extractHashtags(block.markdown));
+  }
+  if (block.content) {
+    for (const child of block.content) {
+      tags.push(...extractTagsFromBlock(child));
+    }
+  }
+  return [...new Set(tags)];
 }
 
 async function fetchAPI<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
@@ -103,7 +152,7 @@ async function fetchBlocks(documentId: string): Promise<CraftBlock[]> {
     id: documentId,
     maxDepth: '-1',
   });
-  
+
   if (Array.isArray(response)) {
     return response;
   }
@@ -113,8 +162,58 @@ async function fetchBlocks(documentId: string): Promise<CraftBlock[]> {
   if (response && Array.isArray(response.blocks)) {
     return response.blocks;
   }
-  
+
   return [];
+}
+
+async function fetchFolders(): Promise<CraftFolder[]> {
+  try {
+    console.log('Fetching folders...');
+    const response = await fetchAPI<any>('/folders');
+    const folders = response.items || [];
+    console.log(`Found ${folders.length} top-level folders`);
+    return folders;
+  } catch (error) {
+    console.warn('Failed to fetch folders:', error);
+    return [];
+  }
+}
+
+async function buildDocumentToFolderMap(folders: CraftFolder[]): Promise<Map<string, string>> {
+  const docToFolder = new Map<string, string>();
+
+  // Flatten folder hierarchy
+  const allFolders: CraftFolder[] = [];
+  const flattenFolders = (folders: CraftFolder[]) => {
+    for (const folder of folders) {
+      allFolders.push(folder);
+      if (folder.folders && folder.folders.length > 0) {
+        flattenFolders(folder.folders);
+      }
+    }
+  };
+  flattenFolders(folders);
+
+  console.log(`Fetching documents for ${allFolders.length} folders...`);
+
+  // Fetch documents for each folder
+  for (const folder of allFolders) {
+    try {
+      const response = await fetchAPI<any>('/documents', {
+        folderId: folder.id,
+        fetchMetadata: 'true'
+      });
+      const docs = response.items || response.documents || [];
+      for (const doc of docs) {
+        docToFolder.set(doc.id, folder.id);
+      }
+    } catch (error) {
+      console.warn(`Failed to fetch documents for folder ${folder.id}:`, error);
+    }
+  }
+
+  console.log(`Mapped ${docToFolder.size} documents to folders`);
+  return docToFolder;
 }
 
 function calculateNodeColor(linkCount: number): string {
@@ -128,7 +227,7 @@ function calculateNodeColor(linkCount: number): string {
 async function buildDemoGraph(): Promise<GraphData> {
   const documents = await fetchDocuments();
   const excludeDeleted = documents.filter(doc => !doc.deleted);
-  
+
   // Sort by creation date for chronological layout
   excludeDeleted.sort((a, b) => {
     const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -137,10 +236,15 @@ async function buildDemoGraph(): Promise<GraphData> {
   });
 
   console.log(`Processing ${excludeDeleted.length} documents (excluding deleted)...`);
-  
+
+  // Fetch folders and build document-to-folder map
+  const folders = await fetchFolders();
+  const docToFolderMap = folders.length > 0 ? await buildDocumentToFolderMap(folders) : new Map();
+
   const nodesMap = new Map<string, GraphNode>();
   const blockToDocMap = new Map<string, string>();
   const linksMap = new Map<string, Set<string>>();
+  const tagToDocumentsMap = new Map<string, Set<string>>();
   
   // Create document nodes
   for (const doc of excludeDeleted) {
@@ -156,12 +260,12 @@ async function buildDemoGraph(): Promise<GraphData> {
     blockToDocMap.set(doc.id, doc.id);
   }
   
-  // Fetch blocks and extract links
+  // Fetch blocks and extract links and tags
   let processed = 0;
   for (const doc of excludeDeleted) {
     try {
       const blocks = await fetchBlocks(doc.id);
-      
+
       // Map blocks to document
       const addBlocksToMap = (blocks: CraftBlock[]) => {
         for (const block of blocks) {
@@ -172,7 +276,7 @@ async function buildDemoGraph(): Promise<GraphData> {
         }
       };
       addBlocksToMap(blocks);
-      
+
       // Extract links
       const docLinks = new Set<string>();
       for (const block of blocks) {
@@ -184,11 +288,26 @@ async function buildDemoGraph(): Promise<GraphData> {
           }
         }
       }
-      
+
       if (docLinks.size > 0) {
         linksMap.set(doc.id, docLinks);
       }
-      
+
+      // Extract tags
+      const docTags = new Set<string>();
+      for (const block of blocks) {
+        const tags = extractTagsFromBlock(block);
+        tags.forEach(tag => docTags.add(tag));
+      }
+
+      // Map tags to documents
+      docTags.forEach(tag => {
+        if (!tagToDocumentsMap.has(tag)) {
+          tagToDocumentsMap.set(tag, new Set());
+        }
+        tagToDocumentsMap.get(tag)!.add(doc.id);
+      });
+
       processed++;
       if (processed % 10 === 0) {
         console.log(`Processed ${processed}/${excludeDeleted.length} documents...`);
@@ -199,7 +318,82 @@ async function buildDemoGraph(): Promise<GraphData> {
   }
   
   console.log(`Finished processing ${processed} documents`);
-  
+
+  // Create tag nodes (star topology)
+  console.log(`\nCreating tag nodes for ${tagToDocumentsMap.size} unique tags...`);
+  for (const [tagPath, documentIds] of tagToDocumentsMap.entries()) {
+    const tagId = `tag:${tagPath}`;
+
+    nodesMap.set(tagId, {
+      id: tagId,
+      title: `#${tagPath}`,
+      type: 'tag',
+      linkCount: 0,
+      color: '#34d399', // Green
+      nodeSize: 1.5,
+      metadata: {
+        tagPath,
+        isNestedTag: tagPath.includes('/'),
+      },
+    });
+
+    // Create links from tag to all documents
+    if (!linksMap.has(tagId)) {
+      linksMap.set(tagId, new Set());
+    }
+    for (const docId of documentIds) {
+      linksMap.get(tagId)!.add(docId);
+    }
+  }
+
+  // Create folder nodes (star topology)
+  console.log(`Creating folder nodes...`);
+  const allFolders: Array<CraftFolder & { fullPath: string }> = [];
+  const flattenFolders = (folders: CraftFolder[], parentPath = '') => {
+    for (const folder of folders) {
+      const fullPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
+      allFolders.push({ ...folder, fullPath });
+      if (folder.folders && folder.folders.length > 0) {
+        flattenFolders(folder.folders, fullPath);
+      }
+    }
+  };
+  flattenFolders(folders);
+
+  for (const folder of allFolders) {
+    const docsInFolder = Array.from(docToFolderMap.entries())
+      .filter(([_, fid]) => fid === folder.id)
+      .map(([docId, _]) => docId);
+
+    if (docsInFolder.length === 0) continue;
+
+    const folderId = `folder:${folder.id}`;
+
+    nodesMap.set(folderId, {
+      id: folderId,
+      title: folder.fullPath,
+      type: 'folder',
+      linkCount: 0,
+      color: '#60a5fa', // Blue
+      nodeSize: 1.5,
+      metadata: {
+        folderPath: folder.fullPath,
+      },
+    });
+
+    // Create links from folder to documents
+    if (!linksMap.has(folderId)) {
+      linksMap.set(folderId, new Set());
+    }
+    for (const docId of docsInFolder) {
+      if (nodesMap.has(docId)) {
+        linksMap.get(folderId)!.add(docId);
+      }
+    }
+  }
+
+  console.log(`Created ${allFolders.filter(f => linksMap.has(`folder:${f.id}`)).length} folder nodes`);
+
   // Build links array
   const links: GraphLink[] = [];
   for (const [source, targets] of linksMap.entries()) {
@@ -207,14 +401,14 @@ async function buildDemoGraph(): Promise<GraphData> {
     if (sourceNode) {
       sourceNode.linksTo = Array.from(targets);
     }
-    
+
     for (const target of targets) {
       if (source !== target && nodesMap.has(target)) {
         links.push({ source, target });
-        
+
         const sourceNode = nodesMap.get(source);
         const targetNode = nodesMap.get(target);
-        
+
         if (sourceNode) sourceNode.linkCount++;
         if (targetNode) {
           targetNode.linkCount++;
@@ -227,9 +421,11 @@ async function buildDemoGraph(): Promise<GraphData> {
     }
   }
   
-  // Apply colors
+  // Apply colors (preserve existing colors for tags/folders)
   for (const node of nodesMap.values()) {
-    node.color = calculateNodeColor(node.linkCount);
+    if (!node.color) {
+      node.color = calculateNodeColor(node.linkCount);
+    }
   }
   
   const graphData: GraphData = {
@@ -238,7 +434,10 @@ async function buildDemoGraph(): Promise<GraphData> {
   };
   
   console.log(`\nGraph built:`);
-  console.log(`- ${graphData.nodes.length} nodes`);
+  console.log(`- ${graphData.nodes.length} total nodes`);
+  console.log(`  - ${graphData.nodes.filter(n => n.type === 'document').length} document nodes`);
+  console.log(`  - ${graphData.nodes.filter(n => n.type === 'tag').length} tag nodes`);
+  console.log(`  - ${graphData.nodes.filter(n => n.type === 'folder').length} folder nodes`);
   console.log(`- ${graphData.links.length} links`);
   console.log(`- ${graphData.nodes.filter(n => n.linkCount === 0).length} orphan nodes`);
   

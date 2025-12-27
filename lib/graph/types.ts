@@ -6,7 +6,7 @@
 export interface GraphNode {
   id: string;
   title: string;
-  type: 'document' | 'block';
+  type: 'document' | 'block' | 'tag' | 'folder';
   linkCount: number;
   color?: string;
   linksTo?: string[];
@@ -14,6 +14,12 @@ export interface GraphNode {
   clickableLink?: string;
   createdAt?: string;
   lastModifiedAt?: string;
+  nodeSize?: number;
+  metadata?: {
+    tagPath?: string;
+    isNestedTag?: boolean;
+    folderPath?: string;
+  };
 }
 
 export interface GraphLink {
@@ -56,6 +62,8 @@ export interface GraphBuildOptions {
   maxDepth?: number;
   excludeDeleted?: boolean;
   onProgress?: (current: number, total: number, message: string) => void;
+  includeTags?: boolean;
+  includeFolders?: boolean;
 }
 
 export interface GraphStreamCallbacks {
@@ -70,6 +78,8 @@ export interface GraphBuildStreamingOptions {
   excludeDeleted?: boolean;
   callbacks?: GraphStreamCallbacks;
   signal?: AbortSignal;
+  includeTags?: boolean;
+  includeFolders?: boolean;
 }
 
 export interface GraphStats {
@@ -113,5 +123,16 @@ export interface GraphUpdateResult {
 export interface GraphBuildResult {
   graphData: GraphData;
   documentMetadata: DocumentMetadata[];
+}
+
+export interface CraftFolder {
+  id: string;
+  name: string;
+  documentCount: number;
+  folders?: CraftFolder[];
+}
+
+export interface CraftFolderResponse {
+  items: CraftFolder[];
 }
 
