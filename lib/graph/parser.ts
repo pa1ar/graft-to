@@ -195,7 +195,7 @@ export function buildGraphData(
         type: 'tag',
         linkCount: 0,
         color: '#34d399',
-        nodeSize: 1.5,
+        nodeSize: 2,
         metadata: {
           tagPath,
           isNestedTag: tagPath.includes('/'),

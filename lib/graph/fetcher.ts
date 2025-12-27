@@ -380,7 +380,7 @@ export class CraftGraphFetcher {
         type: 'folder',
         linkCount: 0,
         color: '#60a5fa',
-        nodeSize: 1.5,
+        nodeSize: 2,
         metadata: {
           folderPath: folder.fullPath,
         },
@@ -1087,7 +1087,7 @@ export class CraftGraphFetcher {
           type: 'tag',
           linkCount: 0,
           color: '#34d399',
-          nodeSize: 1.5,
+          nodeSize: 2,
           metadata: {
             tagPath,
             isNestedTag: tagPath.includes('/'),

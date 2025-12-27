@@ -288,15 +288,13 @@ export const ForceGraph = React.forwardRef<ForceGraphRef, ForceGraphProps>(
 
   // Node color function
   const getNodeColor = (node: any) => {
-    // Use node's color property for tags/folders
-    if (node.color) {
-      const activeNode = getActiveNode()
+    const activeNode = getActiveNode()
+
+    // Tags and folders: always use their custom color (green/blue)
+    if (node.type === 'tag' || node.type === 'folder') {
       if (!activeNode) return node.color
 
-      if (node.id === activeNode.id) {
-        return colors.nodeHighlight
-      }
-
+      // Mute if not connected
       if (!isNodeConnected(node.id)) {
         return hexToRgba(node.color, muteOpacity)
       }
@@ -304,8 +302,7 @@ export const ForceGraph = React.forwardRef<ForceGraphRef, ForceGraphProps>(
       return node.color
     }
 
-    // Default color logic for document/block nodes
-    const activeNode = getActiveNode()
+    // Document/block nodes: grey normally, yellow when active
     if (!activeNode) return colors.node
 
     if (node.id === activeNode.id) {

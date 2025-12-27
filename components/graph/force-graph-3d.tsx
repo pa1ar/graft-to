@@ -87,14 +87,38 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
   const UnrealBloomPassRef = React.useRef<any>(null)
   const orbitAngleRef = React.useRef<number>(0)
 
-  const getBloomNodeColor = React.useCallback((linkCount: number): string => {
-    if (linkCount === 0) return "#a855f7" // Purple
-    if (linkCount <= 2) return "#1e40af" // Deep blue
-    if (linkCount === 3) return "#60a5fa" // Light blue
-    if (linkCount <= 5) return "#34d399" // Green
-    if (linkCount <= 7) return "#f97316" // Orange
-    return "#ef4444" // Red (8+)
-  }, [])
+  // Calculate ranking-based bloom colors for balanced distribution
+  const bloomColorMap = React.useMemo(() => {
+    const colorMap = new Map<string, string>();
+
+    if (!graphDataState.nodes.length) {
+      return colorMap;
+    }
+
+    // Get document nodes only (exclude tags/folders)
+    const documentNodes = graphDataState.nodes.filter(n => n.type === 'document' || n.type === 'block');
+    if (!documentNodes.length) {
+      return colorMap;
+    }
+
+    // Sort nodes by linkCount to determine ranking
+    const sorted = [...documentNodes].sort((a, b) => (a.linkCount || 0) - (b.linkCount || 0));
+
+    const colors = ['#a855f7', '#1e40af', '#60a5fa', '#34d399', '#f97316', '#ef4444'];
+    const nodesPerColor = Math.ceil(sorted.length / 6);
+
+    // Assign colors based on ranking position
+    sorted.forEach((node, index) => {
+      const colorIndex = Math.min(Math.floor(index / nodesPerColor), 5);
+      colorMap.set(node.id, colors[colorIndex]);
+    });
+
+    return colorMap;
+  }, [graphDataState.nodes]);
+
+  const getBloomNodeColor = React.useCallback((nodeId: string): string => {
+    return bloomColorMap.get(nodeId) || '#ef4444'; // Default to red if not found
+  }, [bloomColorMap])
 
   // Load SpriteText and UnrealBloomPass dynamically (pre-load for smooth transitions)
   React.useEffect(() => {
@@ -302,10 +326,14 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
   }
 
   const getNodeColor = React.useCallback((node: any) => {
-    // In bloom mode, use connection-based colors
+    // Tags and folders always keep their custom colors (green/blue)
+    if (node.type === 'tag' || node.type === 'folder') {
+      return node.color || colors.node
+    }
+
+    // In bloom mode, use ranking-based rainbow colors for documents
     if (bloomMode) {
-      const linkCount = node.linkCount ?? 0
-      return getBloomNodeColor(linkCount)
+      return getBloomNodeColor(node.id)
     }
 
     // In new year mode, always use node's color property for colorful display
@@ -313,20 +341,9 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
       return node.color || colors.node
     }
 
-    // Normal mode: use node's color property for tags/folders if available
-    if (node.color) {
-      const activeNode = getActiveNode()
-      if (!activeNode) return node.color
-
-      if (node.id === activeNode.id) {
-        return colors.nodeHighlight
-      }
-
-      return node.color
-    }
-
-    // Default theme-based colors with highlighting
+    // Normal mode: document/block nodes are grey normally, yellow when active
     const activeNode = getActiveNode()
+
     if (!activeNode) return colors.node
 
     if (node.id === activeNode.id) {
@@ -378,12 +395,12 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
     if (typeof window === "undefined" || !SpriteText) return undefined
 
     const sprite = new SpriteText(node.title)
-    const nodeSize = node.nodeSize || 1
+    // Tags and folders are 2x size in 3D
+    const nodeSize = (node.type === 'tag' || node.type === 'folder') ? 2 : 1
 
     // Use appropriate color based on mode - will be updated by effect
     if (bloomMode) {
-      const linkCount = node.linkCount ?? 0
-      sprite.color = getBloomNodeColor(linkCount)
+      sprite.color = getBloomNodeColor(node.id)
     } else if (newYearMode) {
       sprite.color = node.color || colors.node
     } else {
@@ -633,7 +650,11 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
       linkTarget="target"
       nodeLabel={(node: any) => node.title}
       nodeColor={getNodeColor}
-      nodeVal={(node: any) => (node.nodeSize || 1)}
+      nodeVal={(node: any) => {
+        // Tags and folders are 2x size in 3D
+        if (node.type === 'tag' || node.type === 'folder') return 2;
+        return 1;
+      }}
       nodeThreeObject={showLabels ? nodeThreeObject : undefined}
       nodeThreeObjectExtend={true}
       linkColor={getLinkColor}

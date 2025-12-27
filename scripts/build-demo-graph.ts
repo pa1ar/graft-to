@@ -330,7 +330,7 @@ async function buildDemoGraph(): Promise<GraphData> {
       type: 'tag',
       linkCount: 0,
       color: '#34d399', // Green
-      nodeSize: 1.5,
+      nodeSize: 2,
       metadata: {
         tagPath,
         isNestedTag: tagPath.includes('/'),
@@ -375,7 +375,7 @@ async function buildDemoGraph(): Promise<GraphData> {
       type: 'folder',
       linkCount: 0,
       color: '#60a5fa', // Blue
-      nodeSize: 1.5,
+      nodeSize: 2,
       metadata: {
         folderPath: folder.fullPath,
       },
