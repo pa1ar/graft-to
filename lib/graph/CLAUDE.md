@@ -88,7 +88,7 @@ The fetcher provides three graph building methods:
 
 **Process:**
 - Single API call for all documents
-- Parallel block fetching with high concurrency (default: 15)
+- Parallel block fetching with rate-limit-aware concurrency
 - Extract tags and folders if `includeTags`/`includeFolders` options enabled
 - Build complete graph with all nodes and links
 - Return graph data + document metadata for caching
@@ -230,11 +230,9 @@ See `fetcher.ts:buildGraphIncrementalOptimized()`
 
 Block fetching uses a worker pattern with promise queues for controlled concurrency.
 
-**Default concurrency:** 15 parallel requests
+**Default concurrency:** 5 parallel requests (defined as `DEFAULT_CONCURRENCY` constant)
 
-**Implementation:** `fetcher.ts:849`
-
-Adjust based on API rate limits if needed.
+**Rate limiting:** The fetcher includes automatic retry with exponential backoff for 429 errors.
 
 ## Color Preservation Pattern
 

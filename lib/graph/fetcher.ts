@@ -29,21 +29,40 @@ export class CraftAPIError extends Error {
   }
 }
 
+// max parallel requests to avoid rate limiting
+const DEFAULT_CONCURRENCY = 5;
+const RATE_LIMIT_COOLDOWN_MS = 10000; // 10 seconds
+
 export class CraftGraphFetcher {
   private config: CraftAPIConfig;
+  private onProgress?: (current: number, total: number, message: string) => void;
+  private cooldownUntil = 0; // global cooldown timestamp
 
   constructor(config: CraftAPIConfig) {
     this.config = config;
   }
 
+  private async waitForCooldown(): Promise<void> {
+    const now = Date.now();
+    if (this.cooldownUntil > now) {
+      const waitMs = this.cooldownUntil - now;
+      this.onProgress?.(0, 0, `Cooling down (${Math.ceil(waitMs / 1000)}s)...`);
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+    }
+  }
+
   private async fetchAPI<T>(
     endpoint: string,
     params: Record<string, string> = {},
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    retries = 3
   ): Promise<T> {
+    // wait if global cooldown is active (from another worker hitting 429)
+    await this.waitForCooldown();
+
     // Use proxy to avoid CORS issues
     const proxyUrl = new URL('/api/craft' + endpoint, window.location.origin);
-    
+
     Object.entries(params).forEach(([key, value]) => {
       proxyUrl.searchParams.append(key, value);
     });
@@ -60,6 +79,19 @@ export class CraftGraphFetcher {
     const response = await fetch(proxyUrl.toString(), { headers, signal });
 
     if (!response.ok) {
+      // handle rate limit (429) with global cooldown
+      if (response.status === 429 && retries > 0) {
+        const retryAfter = response.headers.get('Retry-After');
+        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : RATE_LIMIT_COOLDOWN_MS;
+
+        // set global cooldown so all workers pause
+        this.cooldownUntil = Date.now() + delay;
+        console.warn(`[API] Rate limited, all workers cooling down for ${delay / 1000}s... (${retries} retries left)`);
+
+        await this.waitForCooldown();
+        return this.fetchAPI<T>(endpoint, params, signal, retries - 1);
+      }
+
       const errorText = await response.text();
       throw new CraftAPIError(
         `API request failed: ${response.statusText}`,
@@ -248,7 +280,7 @@ export class CraftGraphFetcher {
   async fetchBlocksParallel(
     documents: CraftDocument[],
     maxDepth = -1,
-    concurrency = 10,
+    concurrency = DEFAULT_CONCURRENCY,
     onProgress?: (completed: number, total: number, message: string) => void
   ): Promise<Map<string, CraftBlock[]>> {
     const results = new Map<string, CraftBlock[]>();
@@ -455,7 +487,7 @@ export class CraftGraphFetcher {
     const blocksMap = new Map<string, CraftBlock[]>();
     const queue = [...documents];
     let completed = 0;
-    const concurrency = 10;
+    const concurrency = DEFAULT_CONCURRENCY;
     const discoveredLinks: GraphLink[] = [];
     
     const addBlocksToMap = (docId: string, blocks: CraftBlock[]) => {
@@ -905,7 +937,7 @@ export class CraftGraphFetcher {
   /**
    * Optimized graph building:
    * 1. Single call to fetch all documents with metadata
-   * 2. Parallel fetch of blocks for all documents (high concurrency)
+   * 2. Parallel fetch of blocks for all documents
    * 3. Extract links and build graph
    */
   async buildGraphOptimized(options: GraphBuildStreamingOptions = {}): Promise<GraphBuildResult> {
@@ -917,6 +949,9 @@ export class CraftGraphFetcher {
       includeTags = false,
       includeFolders = false
     } = options;
+
+    // store callback for rate limit messages
+    this.onProgress = callbacks?.onProgress;
 
     if (signal?.aborted) {
       throw new Error('Operation aborted');
@@ -997,8 +1032,7 @@ export class CraftGraphFetcher {
       }
     };
 
-    // High concurrency for parallel fetching
-    const concurrency = 15;
+    const concurrency = DEFAULT_CONCURRENCY;
     const queue = [...documents];
 
     const worker = async () => {
@@ -1174,6 +1208,9 @@ export class CraftGraphFetcher {
     options: GraphBuildStreamingOptions = {}
   ): Promise<GraphUpdateResult> {
     const { maxDepth = -1, callbacks, signal } = options;
+
+    // store callback for rate limit messages
+    this.onProgress = callbacks?.onProgress;
 
     if (signal?.aborted) {
       throw new Error('Operation aborted');
