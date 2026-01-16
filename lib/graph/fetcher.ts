@@ -356,12 +356,40 @@ export class CraftGraphFetcher {
     };
     flattenFolders(folders);
 
-    const total = allFolders.length;
+    // filter out built-in locations that need `location` param instead of `folderId`
+    const builtInLocationIds = new Set(['unsorted', 'daily_notes', 'trash', 'templates']);
+    const realFolders = allFolders.filter(f => !builtInLocationIds.has(f.id));
 
-    // Fetch documents for each folder
-    for (let i = 0; i < allFolders.length; i++) {
-      const folder = allFolders[i];
-      onProgress?.(i + 1, total, `Mapping folder ${i + 1}/${total}...`);
+    // built-in locations to fetch (skip trash)
+    const builtInLocations = ['daily_notes', 'unsorted', 'templates'];
+    const total = realFolders.length + builtInLocations.length;
+    let current = 0;
+
+    // fetch documents for built-in locations using `location` param
+    for (const location of builtInLocations) {
+      current++;
+      const displayName = location === 'daily_notes' ? 'Daily Notes' :
+                          location === 'unsorted' ? 'Unsorted' : 'Templates';
+      onProgress?.(current, total, `Mapping ${displayName}...`);
+
+      try {
+        const response = await this.fetchAPI<any>('/documents', {
+          location
+        }, signal);
+
+        const docs = response.items || [];
+        for (const doc of docs) {
+          docToFolder.set(doc.id, `location:${location}`);
+        }
+      } catch (error) {
+        console.warn(`[Fetch] Failed to fetch documents for location ${location}:`, error);
+      }
+    }
+
+    // fetch documents for each real folder
+    for (const folder of realFolders) {
+      current++;
+      onProgress?.(current, total, `Mapping folder ${current}/${total}...`);
 
       try {
         // GET /documents?folderId={folderId}
@@ -402,8 +430,47 @@ export class CraftGraphFetcher {
     };
     flattenFolders(folders);
 
+    // Create nodes for built-in locations (daily_notes, unsorted, templates)
+    const builtInLocations = [
+      { id: 'location:daily_notes', title: 'Daily Notes', color: '#f472b6' },  // pink
+      { id: 'location:unsorted', title: 'Unsorted', color: '#a78bfa' },        // purple
+      { id: 'location:templates', title: 'Templates', color: '#fbbf24' },      // yellow
+    ];
+
+    for (const location of builtInLocations) {
+      const docsInLocation = Array.from(docToFolderMap.entries())
+        .filter(([_, fid]) => fid === location.id)
+        .map(([docId, _]) => docId);
+
+      if (docsInLocation.length === 0) continue;
+
+      nodesMap.set(location.id, {
+        id: location.id,
+        title: location.title,
+        type: 'folder',
+        linkCount: 0,
+        color: location.color,
+        nodeSize: 2,
+        metadata: {
+          folderPath: location.title,
+          isBuiltInLocation: true,
+        },
+      });
+
+      // Create links from location to documents
+      for (const docId of docsInLocation) {
+        if (nodesMap.has(docId)) {
+          links.push({ source: location.id, target: docId });
+        }
+      }
+    }
+
     // Create folder nodes (star topology)
     for (const folder of allFolders) {
+      // skip built-in location IDs
+      if (folder.id === 'unsorted' || folder.id === 'daily_notes' ||
+          folder.id === 'trash' || folder.id === 'templates') continue;
+
       const docsInFolder = Array.from(docToFolderMap.entries())
         .filter(([_, fid]) => fid === folder.id)
         .map(([docId, _]) => docId);

@@ -19,6 +19,7 @@ export interface GraphNode {
     tagPath?: string;
     isNestedTag?: boolean;
     folderPath?: string;
+    isBuiltInLocation?: boolean;
   };
 }
 

@@ -117,6 +117,8 @@ Framework-agnostic graph processing. See [`lib/graph/CLAUDE.md`](lib/graph/CLAUD
 
 ## Craft API Integration
 
+**API Reference**: See `../craft-do-api/craft-do-api-docs.md` and `../craft-do-api/craft-do-openapi.json` for full Craft API documentation.
+
 - **Documents**: Fetched via `/documents` endpoint
 - **Blocks**: Via `/blocks?id={docId}&maxDepth=-1`
 - **Folders**: Via `/folders` endpoint
