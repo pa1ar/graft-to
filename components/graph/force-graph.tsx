@@ -35,6 +35,26 @@ const DARK_THEME: ThemeColors = {
 
 const THEME_EVENT = "graft:theme-change"
 
+// custom boundary force that pulls nodes inward when they exceed max radius
+function createBoundaryForce(boundaryRadius: number) {
+  let nodes: any[] = []
+
+  function force() {
+    for (const node of nodes) {
+      const dist = Math.sqrt((node.x || 0) ** 2 + (node.y || 0) ** 2)
+      if (dist > boundaryRadius) {
+        // push toward center, strength increases with distance
+        const k = (dist - boundaryRadius) * 0.01
+        node.vx -= (node.x / dist) * k
+        node.vy -= (node.y / dist) * k
+      }
+    }
+  }
+
+  force.initialize = (n: any[]) => { nodes = n }
+  return force
+}
+
 const getInitialTheme = (): ThemeMode => {
   if (typeof document === "undefined") return "light"
   return document.documentElement.classList.contains("dark") ? "dark" : "light"
@@ -161,8 +181,13 @@ export const ForceGraph = React.forwardRef<ForceGraphRef, ForceGraphProps>(
     if (graphRef.current) {
       graphRef.current.d3Force("charge").strength(-100)
       graphRef.current.d3Force("link").distance(50)
+
+      // add boundary force to keep disconnected nodes from drifting too far
+      const nodeCount = graphDataState.nodes.length
+      const boundaryRadius = Math.max(300, Math.sqrt(nodeCount) * 30)
+      graphRef.current.d3Force("boundary", createBoundaryForce(boundaryRadius))
     }
-  }, [])
+  }, [graphDataState.nodes.length])
 
   React.useEffect(() => {
     if (typeof window === "undefined") return

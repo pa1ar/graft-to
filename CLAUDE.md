@@ -135,6 +135,15 @@ Framework-agnostic graph processing. See [`lib/graph/CLAUDE.md`](lib/graph/CLAUD
 - All processing happens client-side
 - Cache stored only in browser's IndexedDB
 
+## Commit Messages
+
+Use conventional commit prefixes:
+- `feat:` new features
+- `fix:` bug fixes
+- `chore:` maintenance, refactoring, docs
+
+Format: `type: short description` (lowercase, no period)
+
 ## Development Notes
 
 - **Path aliases**: Use `@/` prefix for imports (maps to project root)
