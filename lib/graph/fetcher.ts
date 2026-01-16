@@ -307,7 +307,8 @@ export class CraftGraphFetcher {
 
   private async buildDocumentToFolderMap(
     folders: import('./types').CraftFolder[],
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onProgress?: (current: number, total: number, message: string) => void
   ): Promise<Map<string, string>> {
     const docToFolder = new Map<string, string>();
 
@@ -323,8 +324,13 @@ export class CraftGraphFetcher {
     };
     flattenFolders(folders);
 
+    const total = allFolders.length;
+
     // Fetch documents for each folder
-    for (const folder of allFolders) {
+    for (let i = 0; i < allFolders.length; i++) {
+      const folder = allFolders[i];
+      onProgress?.(i + 1, total, `Mapping folder ${i + 1}/${total}...`);
+
       try {
         // GET /documents?folderId={folderId}
         const response = await this.fetchAPI<any>('/documents', {
@@ -971,8 +977,7 @@ export class CraftGraphFetcher {
       folders = await this.fetchFolders(signal);
 
       if (folders.length > 0) {
-        callbacks?.onProgress?.(0, 0, 'Mapping documents to folders...');
-        docToFolderMap = await this.buildDocumentToFolderMap(folders, signal);
+          docToFolderMap = await this.buildDocumentToFolderMap(folders, signal, callbacks?.onProgress);
       }
     }
 
