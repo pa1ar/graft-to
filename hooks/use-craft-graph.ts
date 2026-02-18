@@ -181,7 +181,9 @@ export function useCraftGraph() {
                   ...node,
                   linkCount,
                   // Preserve existing color for tags/folders, otherwise calculate based on linkCount
-                  color: node.color || calculateNodeColor(linkCount),
+                  color: (node.type === 'tag' || node.type === 'folder')
+                    ? (node.color || calculateNodeColor(linkCount))
+                    : calculateNodeColor(linkCount),
                 };
               })
               

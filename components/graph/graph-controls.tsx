@@ -107,6 +107,7 @@ interface ConnectPanelProps {
   apiKey: string
   isConnecting: boolean
   isLoading: boolean
+  isRefreshing?: boolean
   formError: string | null
   error?: string | null
   progress: ProgressState
@@ -118,16 +119,17 @@ interface ConnectPanelProps {
   onCancelLoading?: () => void
 }
 
-function ConnectPanel({ 
-  apiUrl, 
-  apiKey, 
-  isConnecting, 
+function ConnectPanel({
+  apiUrl,
+  apiKey,
+  isConnecting,
   isLoading,
-  formError, 
+  isRefreshing,
+  formError,
   error,
   progress,
-  onApiUrlChange, 
-  onApiKeyChange, 
+  onApiUrlChange,
+  onApiKeyChange,
   onConnect,
   onDisconnect,
   onClearCache,
@@ -248,10 +250,10 @@ function ConnectPanel({
         Clear cache
       </Button>
 
-      {isLoading && (
+      {(isLoading || isRefreshing) && (
         <div className="space-y-2 rounded-2xl bg-muted/40 p-3 text-xs">
           <div className="flex items-center justify-between gap-2 text-muted-foreground">
-            <span className="font-medium text-foreground">Loading graph</span>
+            <span className="font-medium text-foreground">{isRefreshing ? "Refreshing graph" : "Loading graph"}</span>
             <div className="flex items-center gap-2">
               {progress.total > 0 ? (
                 <span>
@@ -1022,6 +1024,7 @@ export function GraphControls({
                             apiKey={apiKey}
                             isConnecting={isConnecting}
                             isLoading={isLoading}
+                            isRefreshing={isRefreshing}
                             formError={formError}
                             error={error}
                             progress={progress}

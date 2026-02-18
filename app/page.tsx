@@ -7,6 +7,7 @@ import { ForceGraph, type ForceGraphRef } from "@/components/graph/force-graph"
 import { ForceGraph3DComponent, type ForceGraph3DRef } from "@/components/graph/force-graph-3d"
 import { NodePreview } from "@/components/graph/node-preview"
 import { GraphControls } from "@/components/graph/graph-controls"
+import { TagRenameDialog } from "@/components/graph/tag-rename-dialog"
 import { useCraftGraph } from "@/hooks/use-craft-graph"
 import type { GraphData, GraphNode } from "@/lib/graph"
 
@@ -39,6 +40,16 @@ const getStoredNumber = (key: string, defaultValue: number): number => {
 export default function Page() {
   const { graphData, isLoading, isRefreshing, error, progress, reload, refresh, cancel } = useCraftGraph()
   const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(null)
+  const [tagRenameNode, setTagRenameNode] = React.useState<GraphNode | null>(null)
+
+  // Keep selectedNode fresh when graphData updates (e.g. after incremental refresh)
+  React.useEffect(() => {
+    if (!graphData) return
+    setSelectedNode(prev => {
+      if (!prev) return prev
+      return graphData.nodes.find(n => n.id === prev.id) ?? null
+    })
+  }, [graphData])
   const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
   const [is3D, setIs3D] = React.useState(() => getStoredBoolean(STORAGE_KEY_3D_MODE, false))
   const [isOrbiting, setIsOrbiting] = React.useState(() => getStoredBoolean(STORAGE_KEY_ORBITING, false))
@@ -248,12 +259,26 @@ export default function Page() {
         />
       )}
 
-      <NodePreview 
-        node={selectedNode} 
+      <NodePreview
+        node={selectedNode}
         graphData={graphData}
         onClose={() => setSelectedNode(null)}
         onNodeSelect={handleNodeSelect}
+        onTagRename={(node) => setTagRenameNode(node)}
       />
+
+      {tagRenameNode && graphData && (
+        <TagRenameDialog
+          node={tagRenameNode}
+          graphData={graphData}
+          onClose={() => setTagRenameNode(null)}
+          onRenameComplete={() => {
+            setTagRenameNode(null)
+            setSelectedNode(null)
+            refresh()
+          }}
+        />
+      )}
     </div>
   )
 }

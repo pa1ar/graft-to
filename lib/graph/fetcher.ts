@@ -252,6 +252,91 @@ export class CraftGraphFetcher {
     return null;
   }
 
+  private async fetchAPIPut<T>(
+    endpoint: string,
+    body: unknown,
+    signal?: AbortSignal,
+    retries = 3
+  ): Promise<T> {
+    await this.waitForCooldown();
+
+    const proxyUrl = new URL('/api/craft' + endpoint, window.location.origin);
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-craft-url': this.config.baseUrl,
+    };
+
+    if (this.config.apiKey) {
+      headers['x-craft-key'] = this.config.apiKey;
+    }
+
+    const response = await fetch(proxyUrl.toString(), {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    if (!response.ok) {
+      // handle rate limit (429) with global cooldown — same pattern as fetchAPI
+      if (response.status === 429 && retries > 0) {
+        const retryAfter = response.headers.get('Retry-After');
+        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : RATE_LIMIT_COOLDOWN_MS;
+
+        this.cooldownUntil = Date.now() + delay;
+        console.warn(`[API] PUT rate limited, cooling down for ${delay / 1000}s... (${retries} retries left)`);
+
+        await this.waitForCooldown();
+        return this.fetchAPIPut<T>(endpoint, body, signal, retries - 1);
+      }
+
+      const errorText = await response.text();
+      throw new CraftAPIError(
+        `API PUT request failed: ${response.statusText}`,
+        response.status,
+        errorText
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Update blocks in Craft. Accepts an array of partial block objects (id + fields to update).
+   * The Craft API only updates provided fields.
+   */
+  async updateBlocks(
+    blocks: Array<{ id: string; markdown: string }>,
+    signal?: AbortSignal
+  ): Promise<void> {
+    await this.fetchAPIPut<unknown>('/blocks', { blocks }, signal);
+  }
+
+  /**
+   * Search Craft for all documents containing a given tag path.
+   * Uses the /documents/search endpoint with a regex so results are always fresh,
+   * not dependent on the potentially stale in-memory graph data.
+   * Also finds all nested child tags (e.g. searching "corp" returns docs with #corp/sub too).
+   */
+  async findDocumentsWithTag(tagPath: string, signal?: AbortSignal): Promise<string[]> {
+    // Escape special regex chars in the tag path (handles slashes)
+    const escaped = tagPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // match #tagPath followed by "/" (child tag), a non-word/non-slash char, or end of string
+    const regex = `#${escaped}(?=/|[^a-zA-Z0-9_]|$)`;
+
+    try {
+      const response = await this.fetchAPI<any>('/documents/search', { regexps: regex }, signal);
+      const items: any[] = response.items || [];
+      const docIds = [...new Set(items.map((item: any) => item.documentId).filter(Boolean))];
+      console.log(`[TagRename] Search found ${docIds.length} documents with tag #${tagPath}`);
+      return docIds;
+    } catch (err) {
+      console.warn(`[TagRename] Search for #${tagPath} failed, falling back to graph data:`, err);
+      return [];
+    }
+  }
+
   async fetchBlocks(documentId: string, maxDepth = -1, signal?: AbortSignal): Promise<CraftBlock[]> {
     const response = await this.fetchAPI<any>('/blocks', {
       id: documentId,
@@ -651,7 +736,9 @@ export class CraftGraphFetcher {
     let graphData = buildGraphData(documents, blocksMap);
 
     for (const node of graphData.nodes) {
-      node.color = calculateNodeColor(node.linkCount);
+      if (node.type !== 'tag' && node.type !== 'folder') {
+        node.color = calculateNodeColor(node.linkCount);
+      }
     }
 
     // Rebuild node relationships to ensure linksTo and linkedFrom are up to date
@@ -693,7 +780,9 @@ export class CraftGraphFetcher {
     console.log('[Graph] Built graph with', documentNodes.length, 'document nodes,', graphData.links.length, 'links');
 
     for (const node of graphData.nodes) {
-      node.color = calculateNodeColor(node.linkCount);
+      if (node.type !== 'tag' && node.type !== 'folder') {
+        node.color = calculateNodeColor(node.linkCount);
+      }
     }
 
     onProgress?.(
@@ -1210,6 +1299,20 @@ export class CraftGraphFetcher {
       }
     }
 
+    // Hierarchy links: parent tag → child tag
+    if (includeTags) {
+      for (const tagPath of tagToDocumentsMap.keys()) {
+        if (!tagPath.includes('/')) continue;
+        const parentPath = tagPath.split('/').slice(0, -1).join('/');
+        const parentId = `tag:${parentPath}`;
+        const childId = `tag:${tagPath}`;
+        if (nodesMap.has(parentId) && nodesMap.has(childId)) {
+          if (!linksMap.has(parentId)) linksMap.set(parentId, new Set());
+          linksMap.get(parentId)!.add(childId);
+        }
+      }
+    }
+
     // Step 5: Build final graph
     const links: GraphLink[] = [];
     const discoveredLinks: GraphLink[] = [];
@@ -1244,7 +1347,9 @@ export class CraftGraphFetcher {
 
     // Apply colors and finalize
     for (const node of nodesMap.values()) {
-      node.color = calculateNodeColor(node.linkCount);
+      if (node.type !== 'tag' && node.type !== 'folder') {
+        node.color = calculateNodeColor(node.linkCount);
+      }
     }
 
     let graphData: GraphData = {
@@ -1274,7 +1379,7 @@ export class CraftGraphFetcher {
     cachedGraphData: GraphData,
     options: GraphBuildStreamingOptions = {}
   ): Promise<GraphUpdateResult> {
-    const { maxDepth = -1, callbacks, signal } = options;
+    const { maxDepth = -1, callbacks, signal, includeTags = false } = options;
 
     // store callback for rate limit messages
     this.onProgress = callbacks?.onProgress;
@@ -1368,6 +1473,16 @@ export class CraftGraphFetcher {
       }
     }
 
+    // Remove stale tag→doc links for changed documents so they can be rebuilt
+    if (includeTags) {
+      const changedDocIds = new Set([...added, ...modified]);
+      linksArray = linksArray.filter(link => {
+        const src = typeof link.source === 'object' ? (link.source as any).id : link.source;
+        const tgt = typeof link.target === 'object' ? (link.target as any).id : link.target;
+        return !(src.startsWith('tag:') && changedDocIds.has(tgt));
+      });
+    }
+
     // Add new and update modified documents
     const docsToProcess = [...added, ...modified];
     if (docsToProcess.length > 0) {
@@ -1422,14 +1537,16 @@ export class CraftGraphFetcher {
 
         // Get links from search results or fetch blocks
         let links = searchLinks.get(docId) || [];
-        
-        if (links.length === 0 || links.some(id => !nodesMap.has(id) && !blockToDocMap.has(id))) {
-          // Need to fetch blocks to resolve links
+        let fetchedBlocks: CraftBlock[] | null = null;
+
+        if (includeTags || links.length === 0 || links.some(id => !nodesMap.has(id) && !blockToDocMap.has(id))) {
+          // Need to fetch blocks to resolve links (or to extract tags)
           try {
             if (signal?.aborted) break;
             const blocks = await this.fetchBlocks(docId, maxDepth, signal);
             if (signal?.aborted) break;
-            
+            fetchedBlocks = blocks;
+
             const addBlocksToMap = (blocks: CraftBlock[]) => {
               for (const block of blocks) {
                 blockToDocMap.set(block.id, docId);
@@ -1444,6 +1561,40 @@ export class CraftGraphFetcher {
             }
           } catch (error) {
             console.warn(`[Incremental] Failed to fetch blocks for ${docId}:`, error);
+          }
+        }
+
+        // Extract and rebuild tag connections
+        if (includeTags && fetchedBlocks) {
+          const tags = new Set<string>();
+          for (const block of fetchedBlocks) {
+            extractTagsFromBlock(block).forEach(t => tags.add(t));
+          }
+          // Sort by depth so parent tags are created before children,
+          // ensuring hierarchy links can always find the parent node
+          const sortedTags = [...tags].sort((a, b) => a.split('/').length - b.split('/').length);
+          for (const tag of sortedTags) {
+            const tagId = `tag:${tag}`;
+            if (!nodesMap.has(tagId)) {
+              nodesMap.set(tagId, {
+                id: tagId,
+                title: `#${tag}`,
+                type: 'tag',
+                linkCount: 0,
+                color: '#34d399',
+                nodeSize: 2,
+                metadata: { tagPath: tag, isNestedTag: tag.includes('/') },
+              });
+              // Add parent→child hierarchy link for nested tags
+              if (tag.includes('/')) {
+                const parentPath = tag.split('/').slice(0, -1).join('/');
+                const parentId = `tag:${parentPath}`;
+                if (nodesMap.has(parentId)) {
+                  linksArray.push({ source: parentId, target: tagId });
+                }
+              }
+            }
+            linksArray.push({ source: tagId, target: docId });
           }
         }
 
@@ -1494,6 +1645,30 @@ export class CraftGraphFetcher {
       throw new Error('Operation aborted');
     }
 
+    // Remove tag nodes that no longer appear as a link source (orphaned after tag rename/removal)
+    // Also remove any links referencing those orphaned tags to keep the graph clean
+    if (includeTags) {
+      const tagSources = new Set<string>();
+      for (const link of linksArray) {
+        const src = typeof link.source === 'object' ? (link.source as any).id : link.source;
+        if (src.startsWith('tag:')) tagSources.add(src);
+      }
+      const orphanedTags = new Set<string>();
+      for (const [nodeId, node] of nodesMap) {
+        if (node.type === 'tag' && !tagSources.has(nodeId)) {
+          nodesMap.delete(nodeId);
+          orphanedTags.add(nodeId);
+        }
+      }
+      if (orphanedTags.size > 0) {
+        linksArray = linksArray.filter(link => {
+          const src = typeof link.source === 'object' ? (link.source as any).id : link.source;
+          const tgt = typeof link.target === 'object' ? (link.target as any).id : link.target;
+          return !orphanedTags.has(src) && !orphanedTags.has(tgt);
+        });
+      }
+    }
+
     // Recalculate link counts
     const linkCounts = new Map<string, number>();
     for (const link of linksArray) {
@@ -1506,7 +1681,9 @@ export class CraftGraphFetcher {
     const nodesArray = Array.from(nodesMap.values()).map(node => ({
       ...node,
       linkCount: linkCounts.get(node.id) || 0,
-      color: calculateNodeColor(linkCounts.get(node.id) || 0),
+      color: (node.type === 'tag' || node.type === 'folder')
+        ? (node.color ?? calculateNodeColor(linkCounts.get(node.id) || 0))
+        : calculateNodeColor(linkCounts.get(node.id) || 0),
     }));
 
     let finalGraphData: GraphData = {
