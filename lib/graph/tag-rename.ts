@@ -204,7 +204,7 @@ export async function executeTagRename(
       onProgress({
         current: fetchCompleted,
         total,
-        message: `Fetching document ${fetchCompleted} of ${total}…`,
+        message: `Loading block content for document ${fetchCompleted} of ${total}…`,
       });
     }
   };

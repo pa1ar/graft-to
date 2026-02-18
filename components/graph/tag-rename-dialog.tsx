@@ -150,14 +150,14 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
                   />
                 </div>
                 {newTagPath && !isValidTag && (
-                  <p className="text-xs text-destructive">
-                    Tag names can only contain letters, numbers, underscores, and slashes (for nesting).
-                  </p>
+                  newTagPath.endsWith('/')
+                    ? <p className="text-xs text-muted-foreground">Continue typing to complete the nested tag name.</p>
+                    : <p className="text-xs text-destructive">Tag names can only contain letters, numbers, underscores, and slashes (for nesting).</p>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Renaming a parent tag (e.g. <code className="font-mono">main</code>) will also rename all its subtags
-                (e.g. <code className="font-mono">main/sub</code> → <code className="font-mono">{newTagPath || "new"}/sub</code>).
+                Renaming a parent tag (e.g. <code className="font-mono">#{oldTagPath}</code>) will also rename all its subtags
+                (e.g. <code className="font-mono">#{oldTagPath}/sub</code> → <code className="font-mono">#{(isValidTag && newTagPath) || "newname"}/sub</code>).
               </p>
             </>
           )}

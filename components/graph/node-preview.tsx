@@ -49,6 +49,8 @@ export function NodePreview({ node, graphData, onClose, onNodeSelect, onTagRenam
   const [summary, setSummary] = React.useState<string | null>(null)
   const [isSummarizing, setIsSummarizing] = React.useState(false)
   const [summaryError, setSummaryError] = React.useState<string | null>(null)
+  const [linksToOpen, setLinksToOpen] = React.useState(true)
+  const [linkedFromOpen, setLinkedFromOpen] = React.useState(true)
 
   // Reset summary when node changes
   React.useEffect(() => {
@@ -74,6 +76,10 @@ export function NodePreview({ node, graphData, onClose, onNodeSelect, onTagRenam
   const getNodeTitle = (nodeId: string): string => {
     const foundNode = graphData?.nodes.find(n => n.id === nodeId)
     return foundNode?.title || nodeId
+  }
+
+  const getNodeType = (nodeId: string): string | undefined => {
+    return graphData?.nodes.find(n => n.id === nodeId)?.type
   }
 
   const handleSummarize = async () => {
@@ -296,46 +302,138 @@ export function NodePreview({ node, graphData, onClose, onNodeSelect, onTagRenam
         </CardHeader>
         <CardContent className="node-preview-content flex-1 overflow-y-auto px-6">
           <div className="space-y-4">
-            <div>
-              <h3 className="mb-2 text-sm font-medium">Document ID</h3>
-              <code className="rounded bg-muted px-2 py-1 text-xs break-all">{node.id}</code>
-            </div>
-            
-            {node.linksTo && node.linksTo.length > 0 && (
+            {node.type !== 'tag' && node.type !== 'folder' && (
               <div>
-                <h3 className="mb-2 text-sm font-medium">Links to ({node.linksTo.length})</h3>
-                <div className="space-y-2">
-                  {node.linksTo.map((linkId) => (
-                    <div 
-                      key={linkId} 
-                      onClick={() => onNodeSelect?.(linkId)}
-                      className="cursor-pointer rounded bg-muted p-2 transition-colors hover:bg-muted/80"
-                    >
-                      <div className="text-sm font-medium">{getNodeTitle(linkId)}</div>
-                      <code className="text-xs text-muted-foreground break-all">{linkId}</code>
-                    </div>
-                  ))}
-                </div>
+                <h3 className="mb-2 text-sm font-medium">Document ID</h3>
+                <code className="rounded bg-muted px-2 py-1 text-xs break-all">{node.id}</code>
               </div>
             )}
             
-            {node.linkedFrom && node.linkedFrom.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium">Linked from ({node.linkedFrom.length})</h3>
-                <div className="space-y-2">
-                  {node.linkedFrom.map((linkId) => (
-                    <div 
-                      key={linkId} 
-                      onClick={() => onNodeSelect?.(linkId)}
-                      className="cursor-pointer rounded bg-muted p-2 transition-colors hover:bg-muted/80"
-                    >
-                      <div className="text-sm font-medium">{getNodeTitle(linkId)}</div>
-                      <code className="text-xs text-muted-foreground break-all">{linkId}</code>
-                    </div>
-                  ))}
+            {/* Tags section — document node: tags this doc belongs to */}
+            {node.type !== 'tag' && (() => {
+              const docTags = (node.linkedFrom || []).filter(id => getNodeType(id) === 'tag')
+              if (docTags.length === 0) return null
+              return (
+                <div>
+                  <h3 className="mb-2 text-sm font-medium">Tags ({docTags.length})</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {docTags.map((tagId) => (
+                      <button
+                        key={tagId}
+                        onClick={() => onNodeSelect?.(tagId)}
+                        className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 transition-colors hover:bg-emerald-500/25"
+                      >
+                        {getNodeTitle(tagId)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
+
+            {/* Tags (parent) — tag node: the parent tag if this is a nested tag */}
+            {node.type === 'tag' && (() => {
+              const parentTags = (node.linkedFrom || []).filter(id => getNodeType(id) === 'tag')
+              if (parentTags.length === 0) return null
+              return (
+                <div>
+                  <h3 className="mb-2 text-sm font-medium">Tags (parent)</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {parentTags.map((tagId) => (
+                      <button
+                        key={tagId}
+                        onClick={() => onNodeSelect?.(tagId)}
+                        className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 transition-colors hover:bg-emerald-500/25"
+                      >
+                        {getNodeTitle(tagId)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Tags (children) — tag node: nested subtags of this tag */}
+            {node.type === 'tag' && (() => {
+              const childTags = (node.linksTo || []).filter(id => getNodeType(id) === 'tag')
+              if (childTags.length === 0) return null
+              return (
+                <div>
+                  <h3 className="mb-2 text-sm font-medium">Tags (children)</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {childTags.map((tagId) => (
+                      <button
+                        key={tagId}
+                        onClick={() => onNodeSelect?.(tagId)}
+                        className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 transition-colors hover:bg-emerald-500/25"
+                      >
+                        {getNodeTitle(tagId)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {(() => {
+              const docLinks = (node.linksTo || []).filter(id => getNodeType(id) !== 'tag')
+              if (docLinks.length === 0) return null
+              return (
+                <div>
+                  <button
+                    className="mb-2 flex w-full items-center justify-between text-sm font-medium"
+                    onClick={() => setLinksToOpen(o => !o)}
+                  >
+                    <span>Links to ({docLinks.length})</span>
+                    {linksToOpen ? <IconChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <IconChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </button>
+                  {linksToOpen && (
+                    <div className="space-y-2">
+                      {docLinks.map((linkId) => (
+                        <div
+                          key={linkId}
+                          onClick={() => onNodeSelect?.(linkId)}
+                          className="cursor-pointer rounded bg-muted p-2 transition-colors hover:bg-muted/80"
+                        >
+                          <div className="text-sm font-medium">{getNodeTitle(linkId)}</div>
+                          <code className="text-xs text-muted-foreground break-all">{linkId}</code>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {(() => {
+              const docLinks = (node.linkedFrom || []).filter(id => getNodeType(id) !== 'tag')
+              if (docLinks.length === 0) return null
+              return (
+                <div>
+                  <button
+                    className="mb-2 flex w-full items-center justify-between text-sm font-medium"
+                    onClick={() => setLinkedFromOpen(o => !o)}
+                  >
+                    <span>Linked from ({docLinks.length})</span>
+                    {linkedFromOpen ? <IconChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <IconChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </button>
+                  {linkedFromOpen && (
+                    <div className="space-y-2">
+                      {docLinks.map((linkId) => (
+                        <div
+                          key={linkId}
+                          onClick={() => onNodeSelect?.(linkId)}
+                          className="cursor-pointer rounded bg-muted p-2 transition-colors hover:bg-muted/80"
+                        >
+                          <div className="text-sm font-medium">{getNodeTitle(linkId)}</div>
+                          <code className="text-xs text-muted-foreground break-all">{linkId}</code>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </CardContent>
       </Card>

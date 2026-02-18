@@ -41,6 +41,15 @@ export default function Page() {
   const { graphData, isLoading, isRefreshing, error, progress, reload, refresh, cancel } = useCraftGraph()
   const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(null)
   const [tagRenameNode, setTagRenameNode] = React.useState<GraphNode | null>(null)
+
+  // Keep selectedNode fresh when graphData updates (e.g. after incremental refresh)
+  React.useEffect(() => {
+    if (!graphData) return
+    setSelectedNode(prev => {
+      if (!prev) return prev
+      return graphData.nodes.find(n => n.id === prev.id) ?? null
+    })
+  }, [graphData])
   const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
   const [is3D, setIs3D] = React.useState(() => getStoredBoolean(STORAGE_KEY_3D_MODE, false))
   const [isOrbiting, setIsOrbiting] = React.useState(() => getStoredBoolean(STORAGE_KEY_ORBITING, false))
