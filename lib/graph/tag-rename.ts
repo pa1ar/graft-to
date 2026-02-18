@@ -103,7 +103,7 @@ export function applyTagRenameToMarkdown(
  * Walk a block tree and apply the tag rename to every block's markdown.
  * Returns only the blocks that actually changed (with updated markdown).
  */
-function collectChangedBlocks(
+export function collectChangedBlocks(
   blocks: CraftBlock[],
   oldTagPath: string,
   newTagPath: string
