@@ -104,3 +104,91 @@ describe('collectChangedBlocks', () => {
     expect(collectChangedBlocks(blocks, 'corp', 'company')).toEqual([]);
   });
 });
+
+import { computeTagRenameMap, computeTagRename } from '../tag-rename';
+import type { GraphData } from '../types';
+
+function makeGraphData(tagPaths: string[], tagDocLinks: Record<string, string[]>): GraphData {
+  const nodes = tagPaths.map(path => ({
+    id: `tag:${path}`,
+    title: `#${path}`,
+    type: 'tag' as const,
+    linkCount: 0,
+    metadata: { tagPath: path },
+  }));
+
+  const links = Object.entries(tagDocLinks).flatMap(([tagPath, docIds]) =>
+    docIds.map(docId => ({ source: `tag:${tagPath}`, target: docId }))
+  );
+
+  return { nodes, links };
+}
+
+describe('computeTagRenameMap', () => {
+  test('renames exact tag', () => {
+    const graphData = makeGraphData(['corp'], {});
+    const map = computeTagRenameMap('corp', 'company', graphData);
+    expect(map.get('corp')).toBe('company');
+  });
+
+  test('renames nested child tags', () => {
+    const graphData = makeGraphData(['corp', 'corp/sub', 'corp/sub/deep'], {});
+    const map = computeTagRenameMap('corp', 'company', graphData);
+    expect(map.get('corp')).toBe('company');
+    expect(map.get('corp/sub')).toBe('company/sub');
+    expect(map.get('corp/sub/deep')).toBe('company/sub/deep');
+  });
+
+  test('does not rename unrelated tags', () => {
+    const graphData = makeGraphData(['corp', 'other', 'corporation'], {});
+    const map = computeTagRenameMap('corp', 'company', graphData);
+    expect(map.has('other')).toBe(false);
+    expect(map.has('corporation')).toBe(false);
+  });
+
+  test('includes tag in map even if not present in graph', () => {
+    const graphData = makeGraphData([], {});
+    const map = computeTagRenameMap('corp', 'company', graphData);
+    expect(map.get('corp')).toBe('company');
+  });
+});
+
+describe('computeTagRename', () => {
+  test('returns affected document IDs from graph links', () => {
+    const graphData = makeGraphData(['corp'], { corp: ['doc1', 'doc2'] });
+    const result = computeTagRename('corp', 'company', graphData);
+    expect(result.affectedDocumentIds.sort()).toEqual(['doc1', 'doc2']);
+  });
+
+  test('includes docs from child tag links', () => {
+    const graphData = makeGraphData(['corp', 'corp/sub'], {
+      corp: ['doc1'],
+      'corp/sub': ['doc2'],
+    });
+    const result = computeTagRename('corp', 'company', graphData);
+    expect(result.affectedDocumentIds.sort()).toEqual(['doc1', 'doc2']);
+  });
+
+  test('deduplicates doc that appears in multiple tag links', () => {
+    const graphData = makeGraphData(['corp', 'corp/sub'], {
+      corp: ['doc1'],
+      'corp/sub': ['doc1'],
+    });
+    const result = computeTagRename('corp', 'company', graphData);
+    expect(result.affectedDocumentIds).toEqual(['doc1']);
+  });
+
+  test('returns empty array when tag has no links', () => {
+    const graphData = makeGraphData(['corp'], {});
+    const result = computeTagRename('corp', 'company', graphData);
+    expect(result.affectedDocumentIds).toEqual([]);
+  });
+
+  test('handles resolved link objects {id: ...} as source', () => {
+    const graphData = makeGraphData(['corp'], {});
+    // force-graph resolves string IDs to objects during simulation
+    graphData.links = [{ source: { id: 'tag:corp' } as any, target: 'doc1' }];
+    const result = computeTagRename('corp', 'company', graphData);
+    expect(result.affectedDocumentIds).toEqual(['doc1']);
+  });
+});
