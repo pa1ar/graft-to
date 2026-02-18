@@ -300,6 +300,30 @@ export class CraftGraphFetcher {
     await this.fetchAPIPut<unknown>('/blocks', { blocks }, signal);
   }
 
+  /**
+   * Search Craft for all documents containing a given tag path.
+   * Uses the /documents/search endpoint with a regex so results are always fresh,
+   * not dependent on the potentially stale in-memory graph data.
+   * Also finds all nested child tags (e.g. searching "corp" returns docs with #corp/sub too).
+   */
+  async findDocumentsWithTag(tagPath: string, signal?: AbortSignal): Promise<string[]> {
+    // Escape special regex chars in the tag path (handles slashes)
+    const escaped = tagPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Match #tagPath at a segment boundary: followed by / (child tag), non-word char, or end
+    const regex = `#${escaped}(?:/|[^a-zA-Z0-9_]|$)`;
+
+    try {
+      const response = await this.fetchAPI<any>('/documents/search', { regexps: regex }, signal);
+      const items: any[] = response.items || [];
+      const docIds = [...new Set(items.map((item: any) => item.documentId).filter(Boolean))];
+      console.log(`[TagRename] Search found ${docIds.length} documents with tag #${tagPath}`);
+      return docIds;
+    } catch (err) {
+      console.warn(`[TagRename] Search for #${tagPath} failed, falling back to graph data:`, err);
+      return [];
+    }
+  }
+
   async fetchBlocks(documentId: string, maxDepth = -1, signal?: AbortSignal): Promise<CraftBlock[]> {
     const response = await this.fetchAPI<any>('/blocks', {
       id: documentId,

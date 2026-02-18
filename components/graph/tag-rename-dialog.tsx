@@ -12,11 +12,12 @@ import {
   createFetcher,
   type GraphNode,
   type GraphData,
+  type TagRenamePreview,
   type TagRenameProgress,
   type TagRenameResult,
 } from "@/lib/graph"
 
-type DialogPhase = "input" | "confirm" | "executing" | "done" | "error"
+type DialogPhase = "input" | "previewing" | "confirm" | "executing" | "done" | "error"
 
 interface TagRenameDialogProps {
   node: GraphNode
@@ -31,7 +32,7 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
   const oldTagPath = node.metadata?.tagPath ?? ""
   const [newTagPath, setNewTagPath] = React.useState(oldTagPath)
   const [phase, setPhase] = React.useState<DialogPhase>("input")
-  const [preview, setPreview] = React.useState<ReturnType<typeof computeTagRename> | null>(null)
+  const [preview, setPreview] = React.useState<TagRenamePreview | null>(null)
   const [progress, setProgress] = React.useState<TagRenameProgress | null>(null)
   const [result, setResult] = React.useState<TagRenameResult | null>(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
@@ -40,12 +41,32 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
   const isValidTag = TAG_REGEX.test(newTagPath)
   const isUnchanged = newTagPath.trim() === oldTagPath
 
-  function handlePreview() {
+  async function handlePreview() {
     const trimmed = newTagPath.trim()
     if (!isValidTag || isUnchanged) return
-    const p = computeTagRename(oldTagPath, trimmed, graphData)
-    setPreview(p)
-    setPhase("confirm")
+
+    const apiUrl = typeof window !== "undefined" ? localStorage.getItem("craft_api_url") : null
+    const apiKey = typeof window !== "undefined" ? localStorage.getItem("craft_api_key") : null
+    if (!apiUrl || !apiKey) {
+      setErrorMessage("No Craft API credentials found. Please connect your workspace.")
+      setPhase("error")
+      return
+    }
+
+    setPhase("previewing")
+    abortRef.current = new AbortController()
+
+    try {
+      const fetcher = createFetcher(apiUrl, apiKey)
+      const p = await computeTagRename(oldTagPath, trimmed, graphData, fetcher, abortRef.current.signal)
+      if (abortRef.current.signal.aborted) return
+      setPreview(p)
+      setPhase("confirm")
+    } catch (err) {
+      if (abortRef.current?.signal.aborted) return
+      setErrorMessage(err instanceof Error ? err.message : String(err))
+      setPhase("error")
+    }
   }
 
   async function handleExecute() {
@@ -111,6 +132,7 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
           <h2 className="text-lg font-semibold">Rename Tag</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {phase === "input" && `Enter a new name for ${node.title}`}
+            {phase === "previewing" && "Searching for affected documents…"}
             {phase === "confirm" && "Review the changes before proceeding"}
             {phase === "executing" && "Applying changes to your Craft documents…"}
             {phase === "done" && "Rename complete"}
@@ -120,6 +142,14 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
 
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
+          {/* PREVIEWING phase */}
+          {phase === "previewing" && (
+            <div className="flex items-center gap-3 text-sm py-2">
+              <IconLoader className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
+              <span>Searching Craft for documents with <code className="font-mono">#{oldTagPath}</code>…</span>
+            </div>
+          )}
+
           {/* INPUT phase */}
           {phase === "input" && (
             <>
@@ -252,6 +282,9 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
                 Preview Changes
               </Button>
             </>
+          )}
+          {phase === "previewing" && (
+            <Button variant="outline" onClick={handleCancel}>Cancel</Button>
           )}
           {phase === "confirm" && (
             <>

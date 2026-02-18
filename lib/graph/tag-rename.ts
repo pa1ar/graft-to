@@ -16,49 +16,60 @@ export interface TagRenamePreview {
 }
 
 /**
- * Compute which tags and documents are affected by renaming `oldTagPath` to `newTagPath`.
+ * Compute which tag paths will be renamed (rename map only — no document lookup).
+ * Pure function, works from in-memory graph data.
  * Handles nested tags: renaming "main" → "mainNew" also renames "main/sub" → "mainNew/sub".
  */
-export function computeTagRename(
+export function computeTagRenameMap(
   oldTagPath: string,
   newTagPath: string,
   graphData: GraphData
-): TagRenamePreview {
+): Map<string, string> {
   const renameMap = new Map<string, string>();
-  const affectedDocumentIds = new Set<string>();
 
-  // Find all tag nodes that start with oldTagPath (exact match or parent prefix)
   for (const node of graphData.nodes) {
     if (node.type !== 'tag') continue;
     const tagPath = node.metadata?.tagPath;
     if (!tagPath) continue;
 
     if (tagPath === oldTagPath) {
-      // Exact match
       renameMap.set(tagPath, newTagPath);
     } else if (tagPath.startsWith(oldTagPath + '/')) {
-      // Child tag: replace the prefix
       const suffix = tagPath.slice(oldTagPath.length); // e.g., "/sub1/deep"
       renameMap.set(tagPath, newTagPath + suffix);
     }
   }
 
-  // Collect all document IDs linked from affected tag nodes
-  for (const [oldPath] of renameMap) {
-    const tagId = `tag:${oldPath}`;
-    for (const link of graphData.links) {
-      const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
-      const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
-      if (sourceId === tagId) {
-        affectedDocumentIds.add(targetId);
-      }
-    }
+  // Always include the renamed tag itself even if it's not in the current graph
+  if (!renameMap.has(oldTagPath)) {
+    renameMap.set(oldTagPath, newTagPath);
   }
+
+  return renameMap;
+}
+
+/**
+ * Compute the full rename preview: rename map + live document list via Craft API search.
+ * The document list is fetched fresh from the API to avoid missing docs that weren't
+ * indexed in the current in-memory graph (e.g. due to stale cache or fetch errors).
+ */
+export async function computeTagRename(
+  oldTagPath: string,
+  newTagPath: string,
+  graphData: GraphData,
+  fetcher: CraftGraphFetcher,
+  signal?: AbortSignal
+): Promise<TagRenamePreview> {
+  const renameMap = computeTagRenameMap(oldTagPath, newTagPath, graphData);
+
+  // Search the Craft API live for all documents containing this tag.
+  // This covers docs missed by the graph cache.
+  const affectedDocumentIds = await fetcher.findDocumentsWithTag(oldTagPath, signal);
 
   return {
     affectedTagPaths: Array.from(renameMap.keys()),
     renameMap,
-    affectedDocumentIds: Array.from(affectedDocumentIds),
+    affectedDocumentIds,
   };
 }
 
