@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0 - Tag Rename & Hierarchy
+## 0.5.0 - Bulk Tags Rename
 
 ### New
 - **Tag rename** — right-click any tag node to rename it across your entire Craft space. Renames are applied in parallel, with progress shown per document. Nested tags rename together: renaming `#corp` also renames `#corp/sub` → `#newname/sub`
@@ -29,3 +29,28 @@
 - Add Daily Notes, Unsorted, and Templates as special folder nodes in the graph
 - Add rate limiting with global cooldown and automatic retry logic for API calls
 - Add progress feedback during folder mapping for better loading UX
+
+---
+
+## 0.3.0 - AI Summarization
+
+- Summarize any note on demand via the Sumr button in the node preview
+- No data retention whatsoever — content is not stored on backend
+- Request is sent through the gateway straight to the inference service provider
+- Service provider aggregator is OpenRouter
+
+---
+
+## 0.2.0 - Tags and Folders
+
+- **Tag & Folder Visualization:** Added hashtag extraction (#tag, #nested/tag) and folder-based graph nodes with star topology clustering. Tags appear in green and folders in blue, both 2x size for easy identification. All three linking types (wikilinks, tags, folders) can be toggled independently with instant client-side filtering
+- **Enhanced Bloom Mode:** Implemented ranking-based percentile colorization that creates a balanced rainbow distribution across all connectivity levels, ensuring visual variety even in highly-connected graphs. Documents display purple→blue→green→orange→red gradient based on relative connectivity while tags and folders maintain their signature colors
+- **Improved Architecture:** Refined the framework-agnostic graph library with comprehensive tag/folder extraction, optimized the incremental update system to include metadata tracking, and enhanced the demo graph builder to showcase all visualization features including nested tag hierarchies and folder clustering
+
+---
+
+## 0.1.0 - Foundation
+
+- **Interactive Graph Visualizations:** Added interactive 2D and 3D force-directed layouts to visualize Craft document connections, including node previews and graph statistics
+- **Privacy & Security:** Implemented a privacy-first architecture where API credentials and note content stay in the browser; includes a pass-through proxy to handle CORS without data logging
+- **Performance Optimizations:** Introduced incremental updates using IndexedDB and chronological tracking to re-fetch only modified documents, along with a responsive, mobile-friendly UI
