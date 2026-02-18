@@ -60,3 +60,43 @@ describe('extractTagsFromBlock', () => {
     expect(extractTagsFromBlock(block('1'))).toEqual([]);
   });
 });
+
+describe('extractBlockLinks', () => {
+  test('extracts block:// link ID', () => {
+    expect(extractBlockLinks('[text](block://abc123)')).toEqual(['abc123']);
+  });
+
+  test('extracts multiple links', () => {
+    const links = extractBlockLinks('[a](block://id1) [b](block://id2)');
+    expect(links).toEqual(['id1', 'id2']);
+  });
+
+  test('returns empty for no block links', () => {
+    expect(extractBlockLinks('no links here')).toEqual([]);
+  });
+
+  test('ignores non-block:// links', () => {
+    expect(extractBlockLinks('[text](https://example.com)')).toEqual([]);
+  });
+});
+
+describe('extractLinksFromBlock', () => {
+  function blockWithLinks(id: string, markdown?: string, content?: CraftBlock[]): CraftBlock {
+    return { id, type: 'text', markdown, content };
+  }
+
+  test('extracts links from markdown', () => {
+    const b = blockWithLinks('1', '[ref](block://target)');
+    expect(extractLinksFromBlock(b)).toContain('target');
+  });
+
+  test('recurses into nested content', () => {
+    const child = blockWithLinks('child', '[ref](block://deep)');
+    const parent = blockWithLinks('parent', undefined, [child]);
+    expect(extractLinksFromBlock(parent)).toContain('deep');
+  });
+
+  test('returns empty when no links', () => {
+    expect(extractLinksFromBlock(blockWithLinks('1', 'plain text'))).toEqual([]);
+  });
+});
