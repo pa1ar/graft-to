@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { applyTagRenameToMarkdown } from '../tag-rename';
+import {
+  applyTagRenameToMarkdown,
+  collectChangedBlocks,
+  computeTagRenameMap,
+  computeTagRename,
+} from '../tag-rename';
+import type { CraftBlock, GraphData } from '../types';
 
 describe('applyTagRenameToMarkdown', () => {
   test('renames exact match at end of string', () => {
@@ -57,9 +63,6 @@ describe('applyTagRenameToMarkdown', () => {
   });
 });
 
-import { collectChangedBlocks } from '../tag-rename';
-import type { CraftBlock } from '../types';
-
 describe('collectChangedBlocks', () => {
   function block(id: string, markdown: string, content?: CraftBlock[]): CraftBlock {
     return { id, type: 'text', markdown, content };
@@ -104,9 +107,6 @@ describe('collectChangedBlocks', () => {
     expect(collectChangedBlocks(blocks, 'corp', 'company')).toEqual([]);
   });
 });
-
-import { computeTagRenameMap, computeTagRename } from '../tag-rename';
-import type { GraphData } from '../types';
 
 function makeGraphData(tagPaths: string[], tagDocLinks: Record<string, string[]>): GraphData {
   const nodes = tagPaths.map(path => ({

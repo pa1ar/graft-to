@@ -90,7 +90,7 @@ describe('extractLinksFromBlock', () => {
     expect(extractLinksFromBlock(b)).toContain('target');
   });
 
-  test('recurses into nested content', () => {
+  test('recurses into nested content blocks', () => {
     const child = blockWithLinks('child', '[ref](block://deep)');
     const parent = blockWithLinks('parent', undefined, [child]);
     expect(extractLinksFromBlock(parent)).toContain('deep');
