@@ -40,7 +40,7 @@ export function computeTagRenameMap(
     }
   }
 
-  // Always include the renamed tag itself even if it's not in the current graph
+  // always include the renamed tag itself even if not in the current graph
   if (!renameMap.has(oldTagPath)) {
     renameMap.set(oldTagPath, newTagPath);
   }
@@ -49,27 +49,36 @@ export function computeTagRenameMap(
 }
 
 /**
- * Compute the full rename preview: rename map + live document list via Craft API search.
- * The document list is fetched fresh from the API to avoid missing docs that weren't
- * indexed in the current in-memory graph (e.g. due to stale cache or fetch errors).
+ * Compute the full rename preview from in-memory graph data.
+ * Reads affected document IDs from graphData.links (tag→doc edges built during graph load).
+ * Sync and instant — no API calls needed.
  */
-export async function computeTagRename(
+export function computeTagRename(
   oldTagPath: string,
   newTagPath: string,
-  graphData: GraphData,
-  fetcher: CraftGraphFetcher,
-  signal?: AbortSignal
-): Promise<TagRenamePreview> {
+  graphData: GraphData
+): TagRenamePreview {
   const renameMap = computeTagRenameMap(oldTagPath, newTagPath, graphData);
 
-  // Search the Craft API live for all documents containing this tag.
-  // This covers docs missed by the graph cache.
-  const affectedDocumentIds = await fetcher.findDocumentsWithTag(oldTagPath, signal);
+  // collect all affected tag node IDs (e.g. "tag:corporation", "tag:corporation/sub")
+  const affectedTagIds = new Set(
+    Array.from(renameMap.keys()).map(path => `tag:${path}`)
+  );
+
+  // extract document IDs from graph links where source is an affected tag node
+  const docIds = new Set<string>();
+  for (const link of graphData.links) {
+    const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
+    const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+    if (affectedTagIds.has(sourceId)) {
+      docIds.add(targetId);
+    }
+  }
 
   return {
     affectedTagPaths: Array.from(renameMap.keys()),
     renameMap,
-    affectedDocumentIds,
+    affectedDocumentIds: Array.from(docIds),
   };
 }
 
@@ -83,12 +92,9 @@ export function applyTagRenameToMarkdown(
   newTagPath: string,
   markdown: string
 ): string {
-  // Escape special regex chars in the tag path (handles slashes, underscores, etc.)
+  // escape special regex chars in the tag path (handles slashes, underscores, etc.)
   const escaped = oldTagPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Match #oldTagPath followed by:
-  //   - "/" (child tag continues)
-  //   - a non-word, non-slash character (e.g., space, punctuation, end-of-string)
-  // The character after the tag is captured and reinserted so we don't consume it.
+  // match #oldTagPath followed by "/" (child tag) or a non-word/non-slash char
   const regex = new RegExp(`#(${escaped})(?=/|(?![a-zA-Z0-9_/]))`, 'g');
   return markdown.replace(regex, `#${newTagPath}`);
 }
@@ -137,9 +143,17 @@ export interface TagRenameResult {
   errors: Array<{ documentId: string; error: string }>;
 }
 
+const FETCH_CONCURRENCY = 5;
+const BATCH_SIZE = 200;
+
 /**
  * Execute the tag rename across all affected documents.
- * Re-fetches each document's blocks fresh before modifying, to avoid stale data.
+ *
+ * Phase 0 — search fallback: also queries the API to catch any documents tagged
+ *   after the last graph build. Results are unioned with the provided documentIds.
+ * Phase A — parallel fetch: fetches all document blocks concurrently (5 workers).
+ * Phase B — compute: collects all changed blocks across all documents.
+ * Phase C — batched PUT: sends all updates in a single call (chunked at 200 blocks).
  */
 export async function executeTagRename(
   fetcher: CraftGraphFetcher,
@@ -153,32 +167,91 @@ export async function executeTagRename(
   let updatedBlockCount = 0;
   const errors: Array<{ documentId: string; error: string }> = [];
 
-  const total = documentIds.length;
+  // Phase 0: search fallback — catches docs added after the last graph build
+  onProgress({ current: 0, total: 0, message: 'Checking for recently tagged documents…' });
+  const searchIds = await fetcher.findDocumentsWithTag(oldTagPath, signal);
+  if (signal?.aborted) return { updatedDocumentCount, updatedBlockCount, errors };
 
-  for (let i = 0; i < documentIds.length; i++) {
+  const allDocIds = [...new Set([...documentIds, ...searchIds])];
+  const total = allDocIds.length;
+
+  if (total === 0) return { updatedDocumentCount, updatedBlockCount, errors };
+
+  // Phase A: parallel block fetch
+  const changedBlocksMap = new Map<string, Array<{ id: string; markdown: string }>>();
+  let fetchCompleted = 0;
+  const queue = [...allDocIds];
+
+  const worker = async () => {
+    while (queue.length > 0) {
+      if (signal?.aborted) break;
+      const docId = queue.shift();
+      if (!docId) break;
+
+      try {
+        const blocks = await fetcher.fetchBlocks(docId, -1, signal);
+        if (signal?.aborted) break;
+        const changed = collectChangedBlocks(blocks, oldTagPath, newTagPath);
+        changedBlocksMap.set(docId, changed);
+      } catch (err) {
+        if (signal?.aborted) break;
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[TagRename] Failed to fetch doc ${docId}:`, message);
+        errors.push({ documentId: docId, error: message });
+      }
+
+      fetchCompleted++;
+      onProgress({
+        current: fetchCompleted,
+        total,
+        message: `Fetching document ${fetchCompleted} of ${total}…`,
+      });
+    }
+  };
+
+  await Promise.all(
+    Array(Math.min(FETCH_CONCURRENCY, allDocIds.length))
+      .fill(0)
+      .map(() => worker())
+  );
+
+  if (signal?.aborted) return { updatedDocumentCount, updatedBlockCount, errors };
+
+  // Phase B: collect all changed blocks
+  const allChangedBlocks: Array<{ id: string; markdown: string }> = [];
+  for (const changed of changedBlocksMap.values()) {
+    if (changed.length > 0) {
+      allChangedBlocks.push(...changed);
+      updatedDocumentCount++;
+    }
+  }
+
+  if (allChangedBlocks.length === 0) {
+    return { updatedDocumentCount: 0, updatedBlockCount: 0, errors };
+  }
+
+  // Phase C: batched PUT — chunk at BATCH_SIZE to avoid payload limits
+  const batchCount = Math.ceil(allChangedBlocks.length / BATCH_SIZE);
+
+  for (let i = 0; i < allChangedBlocks.length; i += BATCH_SIZE) {
     if (signal?.aborted) break;
+    const batch = allChangedBlocks.slice(i, i + BATCH_SIZE);
+    const batchIndex = Math.floor(i / BATCH_SIZE) + 1;
 
-    const docId = documentIds[i];
-    onProgress({ current: i + 1, total, message: `Updating document ${i + 1} of ${total}…` });
+    onProgress({
+      current: batchIndex,
+      total: batchCount,
+      message: `Saving changes (batch ${batchIndex}/${batchCount}, ${allChangedBlocks.length} blocks total)…`,
+    });
 
     try {
-      // Re-fetch fresh blocks to avoid overwriting concurrent edits
-      const blocks = await fetcher.fetchBlocks(docId, -1, signal);
-      if (signal?.aborted) break;
-
-      const changedBlocks = collectChangedBlocks(blocks, oldTagPath, newTagPath);
-      if (changedBlocks.length === 0) continue;
-
-      await fetcher.updateBlocks(changedBlocks, signal);
-      if (signal?.aborted) break;
-
-      updatedDocumentCount++;
-      updatedBlockCount += changedBlocks.length;
+      await fetcher.updateBlocks(batch, signal);
+      updatedBlockCount += batch.length;
     } catch (err) {
       if (signal?.aborted) break;
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[TagRename] Failed to update doc ${docId}:`, message);
-      errors.push({ documentId: docId, error: message });
+      console.error('[TagRename] Failed to update blocks batch:', message);
+      errors.push({ documentId: 'batch', error: message });
     }
   }
 

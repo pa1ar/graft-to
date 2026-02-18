@@ -255,7 +255,8 @@ export class CraftGraphFetcher {
   private async fetchAPIPut<T>(
     endpoint: string,
     body: unknown,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    retries = 3
   ): Promise<T> {
     await this.waitForCooldown();
 
@@ -278,6 +279,18 @@ export class CraftGraphFetcher {
     });
 
     if (!response.ok) {
+      // handle rate limit (429) with global cooldown — same pattern as fetchAPI
+      if (response.status === 429 && retries > 0) {
+        const retryAfter = response.headers.get('Retry-After');
+        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : RATE_LIMIT_COOLDOWN_MS;
+
+        this.cooldownUntil = Date.now() + delay;
+        console.warn(`[API] PUT rate limited, cooling down for ${delay / 1000}s... (${retries} retries left)`);
+
+        await this.waitForCooldown();
+        return this.fetchAPIPut<T>(endpoint, body, signal, retries - 1);
+      }
+
       const errorText = await response.text();
       throw new CraftAPIError(
         `API PUT request failed: ${response.statusText}`,
@@ -309,8 +322,8 @@ export class CraftGraphFetcher {
   async findDocumentsWithTag(tagPath: string, signal?: AbortSignal): Promise<string[]> {
     // Escape special regex chars in the tag path (handles slashes)
     const escaped = tagPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Match #tagPath at a segment boundary: followed by / (child tag), non-word char, or end
-    const regex = `#${escaped}(?:/|[^a-zA-Z0-9_]|$)`;
+    // match #tagPath followed by "/" (child tag), a non-word/non-slash char, or end of string
+    const regex = `#${escaped}(?=/|[^a-zA-Z0-9_]|$)`;
 
     try {
       const response = await this.fetchAPI<any>('/documents/search', { regexps: regex }, signal);

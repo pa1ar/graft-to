@@ -159,6 +159,79 @@ export async function setCachedGraph(
   }
 }
 
+/**
+ * Patch cached graphData after a tag rename without invalidating the cache.
+ * Updates tag node IDs, titles, metadata, and link sources in-place.
+ * Leaves documentMetadata timestamps unchanged so the next incremental load
+ * only re-fetches the documents that were actually modified by the rename.
+ */
+export async function patchTagRenameInCache(
+  apiUrl: string,
+  renameMap: Map<string, string>
+): Promise<void> {
+  const cached = await getCachedGraphWithMetadata(apiUrl);
+  if (!cached) return;
+
+  // build old tag node ID → new tag node ID mapping
+  const idMap = new Map<string, string>();
+  for (const [oldPath, newPath] of renameMap) {
+    idMap.set(`tag:${oldPath}`, `tag:${newPath}`);
+  }
+
+  // if any target tag already exists as a separate node, merging is complex —
+  // fall back to clearing the cache so the next full rebuild produces correct state
+  const existingIds = new Set(cached.graphData.nodes.map(n => n.id));
+  for (const [oldId, newId] of idMap) {
+    if (oldId !== newId && existingIds.has(newId)) {
+      console.warn(`[Cache] Tag collision: ${newId} already exists, clearing cache instead of patching`);
+      await clearCache(apiUrl);
+      return;
+    }
+  }
+
+  const links = cached.graphData.links.map(link => {
+    const src = typeof link.source === 'object' ? (link.source as any).id : link.source;
+    const tgt = typeof link.target === 'object' ? (link.target as any).id : link.target;
+    const newSrc = idMap.get(src) ?? src;
+    const newTgt = idMap.get(tgt) ?? tgt;
+    return newSrc === src && newTgt === tgt ? link : { source: newSrc, target: newTgt };
+  });
+
+  // recompute linkCount from the patched links so counts stay accurate
+  const linkCounts = new Map<string, number>();
+  for (const link of links) {
+    const src = typeof link.source === 'object' ? (link.source as any).id : link.source;
+    const tgt = typeof link.target === 'object' ? (link.target as any).id : link.target;
+    linkCounts.set(src, (linkCounts.get(src) ?? 0) + 1);
+    linkCounts.set(tgt, (linkCounts.get(tgt) ?? 0) + 1);
+  }
+
+  const nodes = cached.graphData.nodes.map(node => {
+    if (node.type === 'tag') {
+      const newId = idMap.get(node.id);
+      if (!newId) return { ...node, linkCount: linkCounts.get(node.id) ?? node.linkCount };
+      const newTagPath = renameMap.get(node.metadata?.tagPath ?? '') ?? node.metadata?.tagPath ?? '';
+      return {
+        ...node,
+        id: newId,
+        title: `#${newTagPath}`,
+        linkCount: linkCounts.get(newId) ?? node.linkCount,
+        metadata: { ...node.metadata, tagPath: newTagPath, isNestedTag: newTagPath.includes('/') },
+      };
+    }
+
+    // patch linkedFrom references on document/block nodes
+    const linkedFrom = node.linkedFrom?.some(id => idMap.has(id))
+      ? node.linkedFrom.map(id => idMap.get(id) ?? id)
+      : node.linkedFrom;
+
+    return { ...node, linkCount: linkCounts.get(node.id) ?? node.linkCount, linkedFrom };
+  });
+
+  await setCachedGraph(apiUrl, { nodes, links }, cached.documentMetadata);
+  console.log('[Cache] Patched tag rename in cache:', [...renameMap.entries()].map(([o, n]) => `${o}→${n}`).join(', '));
+}
+
 export async function clearCache(apiUrl?: string): Promise<void> {
   try {
     const db = await openDB();

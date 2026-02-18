@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import {
   computeTagRename,
   executeTagRename,
+  patchTagRenameInCache,
   clearCache,
   createFetcher,
   type GraphNode,
@@ -17,7 +18,7 @@ import {
   type TagRenameResult,
 } from "@/lib/graph"
 
-type DialogPhase = "input" | "previewing" | "confirm" | "executing" | "done" | "error"
+type DialogPhase = "input" | "confirm" | "executing" | "done" | "error"
 
 interface TagRenameDialogProps {
   node: GraphNode
@@ -41,32 +42,14 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
   const isValidTag = TAG_REGEX.test(newTagPath)
   const isUnchanged = newTagPath.trim() === oldTagPath
 
-  async function handlePreview() {
+  function handlePreview() {
     const trimmed = newTagPath.trim()
     if (!isValidTag || isUnchanged) return
 
-    const apiUrl = typeof window !== "undefined" ? localStorage.getItem("craft_api_url") : null
-    const apiKey = typeof window !== "undefined" ? localStorage.getItem("craft_api_key") : null
-    if (!apiUrl || !apiKey) {
-      setErrorMessage("No Craft API credentials found. Please connect your workspace.")
-      setPhase("error")
-      return
-    }
-
-    setPhase("previewing")
-    abortRef.current = new AbortController()
-
-    try {
-      const fetcher = createFetcher(apiUrl, apiKey)
-      const p = await computeTagRename(oldTagPath, trimmed, graphData, fetcher, abortRef.current.signal)
-      if (abortRef.current.signal.aborted) return
-      setPreview(p)
-      setPhase("confirm")
-    } catch (err) {
-      if (abortRef.current?.signal.aborted) return
-      setErrorMessage(err instanceof Error ? err.message : String(err))
-      setPhase("error")
-    }
+    // read document IDs directly from the in-memory graph — instant, no API call
+    const p = computeTagRename(oldTagPath, trimmed, graphData)
+    setPreview(p)
+    setPhase("confirm")
   }
 
   async function handleExecute() {
@@ -97,8 +80,14 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
       setResult(res)
 
       if (!abortRef.current.signal.aborted) {
-        // Invalidate cache so the next graph load is fresh
-        await clearCache(apiUrl)
+        if (res.errors.length === 0) {
+          // all writes succeeded — patch cache in-place, preserving documentMetadata
+          // so the next incremental load only re-fetches the affected documents
+          await patchTagRenameInCache(apiUrl, preview.renameMap)
+        } else {
+          // partial failure — clear cache so next load rebuilds from ground truth
+          await clearCache(apiUrl)
+        }
         setPhase("done")
       }
     } catch (err) {
@@ -132,7 +121,6 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
           <h2 className="text-lg font-semibold">Rename Tag</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {phase === "input" && `Enter a new name for ${node.title}`}
-            {phase === "previewing" && "Searching for affected documents…"}
             {phase === "confirm" && "Review the changes before proceeding"}
             {phase === "executing" && "Applying changes to your Craft documents…"}
             {phase === "done" && "Rename complete"}
@@ -142,14 +130,6 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
 
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
-          {/* PREVIEWING phase */}
-          {phase === "previewing" && (
-            <div className="flex items-center gap-3 text-sm py-2">
-              <IconLoader className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
-              <span>Searching Craft for documents with <code className="font-mono">#{oldTagPath}</code>…</span>
-            </div>
-          )}
-
           {/* INPUT phase */}
           {phase === "input" && (
             <>
@@ -207,6 +187,12 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
                   </div>
                 ))}
               </div>
+
+              {/* Staleness advisory */}
+              <p className="text-xs text-muted-foreground">
+                Document count is based on your current graph. Documents tagged after your last graph
+                build won&apos;t appear above — consider refreshing the graph first if documents were recently tagged.
+              </p>
 
               {/* Warning */}
               <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex gap-3">
@@ -282,9 +268,6 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
                 Preview Changes
               </Button>
             </>
-          )}
-          {phase === "previewing" && (
-            <Button variant="outline" onClick={handleCancel}>Cancel</Button>
           )}
           {phase === "confirm" && (
             <>

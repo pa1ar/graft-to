@@ -266,7 +266,7 @@ export default function Page() {
           onRenameComplete={() => {
             setTagRenameNode(null)
             setSelectedNode(null)
-            reload()
+            refresh()
           }}
         />
       )}
