@@ -168,3 +168,9 @@ Default to using Bun instead of Node.js:
 - **Platform**: Vercel
 - **Config**: `vercel.json` specifies `bunVersion: "1.x"`
 - **Environment**: Production build uses Next.js static export with Bun runtime
+
+## Plans
+
+Implementation plans live in `docs/plans/`:
+- Active plans: `docs/plans/<feature-name>.md`
+- Completed plans: `docs/plans/completed/<feature-name>.md`

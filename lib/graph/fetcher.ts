@@ -252,6 +252,54 @@ export class CraftGraphFetcher {
     return null;
   }
 
+  private async fetchAPIPut<T>(
+    endpoint: string,
+    body: unknown,
+    signal?: AbortSignal
+  ): Promise<T> {
+    await this.waitForCooldown();
+
+    const proxyUrl = new URL('/api/craft' + endpoint, window.location.origin);
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-craft-url': this.config.baseUrl,
+    };
+
+    if (this.config.apiKey) {
+      headers['x-craft-key'] = this.config.apiKey;
+    }
+
+    const response = await fetch(proxyUrl.toString(), {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new CraftAPIError(
+        `API PUT request failed: ${response.statusText}`,
+        response.status,
+        errorText
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Update blocks in Craft. Accepts an array of partial block objects (id + fields to update).
+   * The Craft API only updates provided fields.
+   */
+  async updateBlocks(
+    blocks: Array<{ id: string; markdown: string }>,
+    signal?: AbortSignal
+  ): Promise<void> {
+    await this.fetchAPIPut<unknown>('/blocks', { blocks }, signal);
+  }
+
   async fetchBlocks(documentId: string, maxDepth = -1, signal?: AbortSignal): Promise<CraftBlock[]> {
     const response = await this.fetchAPI<any>('/blocks', {
       id: documentId,

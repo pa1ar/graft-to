@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { track } from "@vercel/analytics/react"
-import { IconX, IconExternalLink, IconChevronDown, IconChevronUp, IconLoader, IconAlertCircle } from "@tabler/icons-react"
+import { IconX, IconExternalLink, IconChevronDown, IconChevronUp, IconLoader, IconAlertCircle, IconPencil } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +16,7 @@ interface NodePreviewProps {
   graphData: GraphData | null
   onClose: () => void
   onNodeSelect?: (nodeId: string) => void
+  onTagRename?: (node: GraphNode) => void
 }
 
 function getSpaceId(): string | null {
@@ -43,7 +44,7 @@ function getSpaceId(): string | null {
   return null
 }
 
-export function NodePreview({ node, graphData, onClose, onNodeSelect }: NodePreviewProps) {
+export function NodePreview({ node, graphData, onClose, onNodeSelect, onTagRename }: NodePreviewProps) {
   const [isMinimized, setIsMinimized] = React.useState(false)
   const [summary, setSummary] = React.useState<string | null>(null)
   const [isSummarizing, setIsSummarizing] = React.useState(false)
@@ -201,35 +202,49 @@ export function NodePreview({ node, graphData, onClose, onNodeSelect }: NodePrev
             </div>
           </div>
           <div className="mt-4 flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => {
-                track("Open in Craft")
-                window.open(craftUrl, "_blank")
-              }}
-            >
-              <IconExternalLink className="mr-2 h-4 w-4" />
-              Open in Craft
-            </Button>
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={handleSummarize}
-              disabled={node.type === 'tag' || node.type === 'folder' || isSummarizing}
-            >
-              {isSummarizing ? (
-                <>
-                  <IconLoader className="mr-2 h-4 w-4 animate-spin" />
-                  Summarizing...
-                </>
-              ) : (
-                <>
-                  <SumrIcon className="mr-2 h-4 w-4" />
-                  Sumr
-                </>
-              )}
-            </Button>
+            {node.type !== 'tag' && (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  track("Open in Craft")
+                  window.open(craftUrl, "_blank")
+                }}
+              >
+                <IconExternalLink className="mr-2 h-4 w-4" />
+                Open in Craft
+              </Button>
+            )}
+            {node.type === 'tag' ? (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => onTagRename?.(node)}
+                disabled={!onTagRename}
+              >
+                <IconPencil className="mr-2 h-4 w-4" />
+                Rename Tag
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={handleSummarize}
+                disabled={node.type === 'folder' || isSummarizing}
+              >
+                {isSummarizing ? (
+                  <>
+                    <IconLoader className="mr-2 h-4 w-4 animate-spin" />
+                    Summarizing...
+                  </>
+                ) : (
+                  <>
+                    <SumrIcon className="mr-2 h-4 w-4" />
+                    Sumr
+                  </>
+                )}
+              </Button>
+            )}
           </div>
           {summary !== null && (
             <div className="mt-4 rounded-lg border bg-muted/50 p-3">
