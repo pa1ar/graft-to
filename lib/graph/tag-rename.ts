@@ -131,6 +131,74 @@ export function collectChangedBlocks(
   return changed;
 }
 
+/**
+ * Patch graph data in-memory after a tag rename. Pure function — no side effects.
+ * Returns patched GraphData, or null if a target tag node already exists (collision).
+ */
+export function patchGraphDataForTagRename(
+  graphData: GraphData,
+  renameMap: Map<string, string>
+): GraphData | null {
+  if (renameMap.size === 0) return { ...graphData, nodes: [...graphData.nodes], links: [...graphData.links] };
+
+  // build old tag node ID → new tag node ID mapping
+  const idMap = new Map<string, string>();
+  for (const [oldPath, newPath] of renameMap) {
+    idMap.set(`tag:${oldPath}`, `tag:${newPath}`);
+  }
+
+  // collision check: if any target tag already exists as a separate node, bail
+  const existingIds = new Set(graphData.nodes.map(n => n.id));
+  for (const [oldId, newId] of idMap) {
+    if (oldId !== newId && existingIds.has(newId)) {
+      return null;
+    }
+  }
+
+  // patch links
+  const links = graphData.links.map(link => {
+    const src = typeof link.source === 'object' ? (link.source as any).id : link.source;
+    const tgt = typeof link.target === 'object' ? (link.target as any).id : link.target;
+    const newSrc = idMap.get(src) ?? src;
+    const newTgt = idMap.get(tgt) ?? tgt;
+    return newSrc === src && newTgt === tgt ? link : { source: newSrc, target: newTgt };
+  });
+
+  // recompute linkCounts from patched links
+  const linkCounts = new Map<string, number>();
+  for (const link of links) {
+    const src = typeof link.source === 'object' ? (link.source as any).id : link.source;
+    const tgt = typeof link.target === 'object' ? (link.target as any).id : link.target;
+    linkCounts.set(src, (linkCounts.get(src) ?? 0) + 1);
+    linkCounts.set(tgt, (linkCounts.get(tgt) ?? 0) + 1);
+  }
+
+  // patch nodes
+  const nodes = graphData.nodes.map(node => {
+    if (node.type === 'tag') {
+      const newId = idMap.get(node.id);
+      if (!newId) return { ...node, linkCount: linkCounts.get(node.id) ?? node.linkCount };
+      const newTagPath = renameMap.get(node.metadata?.tagPath ?? '') ?? node.metadata?.tagPath ?? '';
+      return {
+        ...node,
+        id: newId,
+        title: `#${newTagPath}`,
+        linkCount: linkCounts.get(newId) ?? node.linkCount,
+        metadata: { ...node.metadata, tagPath: newTagPath, isNestedTag: newTagPath.includes('/') },
+      };
+    }
+
+    // patch linkedFrom references on document/block nodes
+    const linkedFrom = node.linkedFrom?.some(id => idMap.has(id))
+      ? node.linkedFrom.map(id => idMap.get(id) ?? id)
+      : node.linkedFrom;
+
+    return { ...node, linkCount: linkCounts.get(node.id) ?? node.linkCount, linkedFrom };
+  });
+
+  return { nodes, links };
+}
+
 export interface TagRenameProgress {
   current: number;
   total: number;

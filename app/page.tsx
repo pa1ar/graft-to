@@ -38,7 +38,7 @@ const getStoredNumber = (key: string, defaultValue: number): number => {
 }
 
 export default function Page() {
-  const { graphData, isLoading, isRefreshing, error, progress, reload, refresh, cancel } = useCraftGraph()
+  const { graphData, isLoading, isRefreshing, error, progress, reload, refresh, cancel, applyTagRename } = useCraftGraph()
   const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(null)
   const [tagRenameNode, setTagRenameNode] = React.useState<GraphNode | null>(null)
 
@@ -272,10 +272,10 @@ export default function Page() {
           node={tagRenameNode}
           graphData={graphData}
           onClose={() => setTagRenameNode(null)}
-          onRenameComplete={() => {
+          onRenameComplete={(renameMap) => {
             setTagRenameNode(null)
             setSelectedNode(null)
-            refresh()
+            applyTagRename(renameMap)
           }}
         />
       )}

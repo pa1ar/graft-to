@@ -33,6 +33,48 @@ export class CraftAPIError extends Error {
 const DEFAULT_CONCURRENCY = 5;
 const RATE_LIMIT_COOLDOWN_MS = 10000; // 10 seconds
 
+/**
+ * detect which documents were added, modified, or deleted by comparing
+ * cached metadata against the current document list from the API.
+ */
+export function detectDocumentChanges(
+  cachedMetadata: DocumentMetadata[],
+  currentDocuments: Array<{ id: string; title: string; lastModifiedAt?: string }>
+): { added: string[]; modified: string[]; deleted: string[] } {
+  const currentDocMap = new Map(currentDocuments.map(doc => [doc.id, doc]));
+  const cachedDocMap = new Map(cachedMetadata.map(doc => [doc.id, doc]));
+
+  const added: string[] = [];
+  const modified: string[] = [];
+  const deleted: string[] = [];
+
+  for (const doc of currentDocuments) {
+    const cached = cachedDocMap.get(doc.id);
+    if (!cached) {
+      added.push(doc.id);
+    } else {
+      const hasTimestampChange =
+        (doc.lastModifiedAt && cached.lastModifiedAt && doc.lastModifiedAt !== cached.lastModifiedAt) ||
+        (doc.lastModifiedAt && !cached.lastModifiedAt) ||
+        (!doc.lastModifiedAt && cached.lastModifiedAt);
+
+      const hasTitleChange = doc.title !== cached.title;
+
+      if (hasTimestampChange || hasTitleChange) {
+        modified.push(doc.id);
+      }
+    }
+  }
+
+  for (const cachedDoc of cachedMetadata) {
+    if (!currentDocMap.has(cachedDoc.id)) {
+      deleted.push(cachedDoc.id);
+    }
+  }
+
+  return { added, modified, deleted };
+}
+
 export class CraftGraphFetcher {
   private config: CraftAPIConfig;
   private onProgress?: (current: number, total: number, message: string) => void;
@@ -802,44 +844,11 @@ export class CraftGraphFetcher {
     const { maxDepth = -1, callbacks } = options;
 
     callbacks?.onProgress?.(0, 0, 'Checking for updates...');
-    
+
     const currentDocuments = await this.fetchDocuments(true);
     const currentDocMap = new Map(currentDocuments.map(doc => [doc.id, doc]));
-    const cachedDocMap = new Map(cachedMetadata.map(doc => [doc.id, doc]));
-    
-    const added: string[] = [];
-    const modified: string[] = [];
-    const deleted: string[] = [];
-    
-    for (const doc of currentDocuments) {
-      const cached = cachedDocMap.get(doc.id);
-      if (!cached) {
-        added.push(doc.id);
-      } else {
-        // More robust change detection:
-        // 1. Compare lastModifiedAt if both exist
-        // 2. If cached has no lastModifiedAt but current does, consider modified
-        // 3. If current has no lastModifiedAt but cached does, consider modified
-        // 4. If neither has lastModifiedAt, compare title as fallback
-        const hasTimestampChange = 
-          (doc.lastModifiedAt && cached.lastModifiedAt && doc.lastModifiedAt !== cached.lastModifiedAt) ||
-          (doc.lastModifiedAt && !cached.lastModifiedAt) ||
-          (!doc.lastModifiedAt && cached.lastModifiedAt);
-        
-        const hasTitleChange = doc.title !== cached.title;
-        
-        if (hasTimestampChange || hasTitleChange) {
-          modified.push(doc.id);
-        }
-      }
-    }
-    
-    for (const cachedDoc of cachedMetadata) {
-      if (!currentDocMap.has(cachedDoc.id)) {
-        deleted.push(cachedDoc.id);
-      }
-    }
-    
+
+    const { added, modified, deleted } = detectDocumentChanges(cachedMetadata, currentDocuments);
     const hasChanges = added.length > 0 || modified.length > 0 || deleted.length > 0;
     
     // Build fresh document metadata
@@ -875,6 +884,7 @@ export class CraftGraphFetcher {
     });
     
     if (modified.length > 0) {
+      const cachedDocMap = new Map(cachedMetadata.map(doc => [doc.id, doc]));
       console.log('[Incremental] Modified documents:', modified.slice(0, 5).map(id => {
         const current = currentDocMap.get(id);
         const cached = cachedDocMap.get(id);
@@ -1393,37 +1403,8 @@ export class CraftGraphFetcher {
     // Fetch current documents
     const currentDocuments = await this.fetchAllDocuments(true, signal);
     const currentDocMap = new Map(currentDocuments.map(doc => [doc.id, doc]));
-    const cachedDocMap = new Map(cachedMetadata.map(doc => [doc.id, doc]));
 
-    // Detect changes
-    const added: string[] = [];
-    const modified: string[] = [];
-    const deleted: string[] = [];
-
-    for (const doc of currentDocuments) {
-      const cached = cachedDocMap.get(doc.id);
-      if (!cached) {
-        added.push(doc.id);
-      } else {
-        const hasTimestampChange =
-          (doc.lastModifiedAt && cached.lastModifiedAt && doc.lastModifiedAt !== cached.lastModifiedAt) ||
-          (doc.lastModifiedAt && !cached.lastModifiedAt) ||
-          (!doc.lastModifiedAt && cached.lastModifiedAt);
-
-        const hasTitleChange = doc.title !== cached.title;
-
-        if (hasTimestampChange || hasTitleChange) {
-          modified.push(doc.id);
-        }
-      }
-    }
-
-    for (const cachedDoc of cachedMetadata) {
-      if (!currentDocMap.has(cachedDoc.id)) {
-        deleted.push(cachedDoc.id);
-      }
-    }
-
+    const { added, modified, deleted } = detectDocumentChanges(cachedMetadata, currentDocuments);
     const hasChanges = added.length > 0 || modified.length > 0 || deleted.length > 0;
 
     // Build fresh document metadata for caching
@@ -1487,7 +1468,8 @@ export class CraftGraphFetcher {
     const docsToProcess = [...added, ...modified];
     if (docsToProcess.length > 0) {
       // First, try to get links via search for efficiency
-      const searchLinks = await this.discoverLinksViaSearch();
+      // when tags enabled, blocks are always fetched — links extracted from blocks directly
+      const searchLinks = includeTags ? new Map<string, string[]>() : await this.discoverLinksViaSearch();
       const blockToDocMap = new Map<string, string>();
 
       // Initialize blockToDocMap with existing nodes

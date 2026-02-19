@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label"
 import {
   computeTagRename,
   executeTagRename,
-  patchTagRenameInCache,
   clearCache,
   createFetcher,
   type GraphNode,
@@ -24,7 +23,7 @@ interface TagRenameDialogProps {
   node: GraphNode
   graphData: GraphData
   onClose: () => void
-  onRenameComplete: () => void
+  onRenameComplete: (renameMap: Map<string, string>) => void
 }
 
 const TAG_REGEX = /^[a-zA-Z0-9_]+(?:\/[a-zA-Z0-9_]+)*$/
@@ -80,11 +79,7 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
       setResult(res)
 
       if (!abortRef.current.signal.aborted) {
-        if (res.errors.length === 0) {
-          // all writes succeeded — patch cache in-place, preserving documentMetadata
-          // so the next incremental load only re-fetches the affected documents
-          await patchTagRenameInCache(apiUrl, preview.renameMap)
-        } else {
+        if (res.errors.length > 0) {
           // partial failure — clear cache so next load rebuilds from ground truth
           await clearCache(apiUrl)
         }
@@ -103,7 +98,9 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
   }
 
   function handleDone() {
-    onRenameComplete()
+    if (result && result.errors.length === 0 && preview) {
+      onRenameComplete(preview.renameMap)
+    }
     onClose()
   }
 
@@ -242,7 +239,7 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                The graph will reload to reflect the changes.
+                The graph will update to reflect the changes.
               </p>
             </div>
           )}

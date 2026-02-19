@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1 - Instant Tag Rename
+
+### Improved
+- Tag rename now updates the graph instantly with zero API calls — no loading spinner or progress bar
+- Extracted pure `patchGraphDataForTagRename` function for in-memory graph patching
+- Extracted `detectDocumentChanges` for cleaner incremental refresh logic
+- Incremental refresh skips redundant search API call when tags are enabled (saves 1 call per refresh)
+
+### Fixed
+- Tag rename no longer triggers a full incremental rebuild after completing
+
+---
+
 ## 0.5.0 - Bulk Tags Rename
 
 ### New

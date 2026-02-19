@@ -1,17 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { 
-  createFetcher, 
-  type GraphData, 
-  type GraphNode, 
-  type GraphLink, 
-  type DocumentMetadata,
-  getCachedGraph, 
+import {
+  createFetcher,
+  type GraphData,
+  type GraphNode,
+  type GraphLink,
+  getCachedGraph,
   getCachedGraphWithMetadata,
   setCachedGraph,
   calculateNodeColor,
-  rebuildNodeRelationships
+  rebuildNodeRelationships,
+  patchGraphDataForTagRename,
+  patchTagRenameInCache,
 } from "@/lib/graph"
 
 const STORAGE_KEY_URL = "craft_api_url"
@@ -410,6 +411,23 @@ export function useCraftGraph() {
     }
   }, [loadGraph])
 
+  const applyTagRename = React.useCallback((renameMap: Map<string, string>) => {
+    setState(prev => {
+      if (!prev.graphData) return prev
+      const patched = patchGraphDataForTagRename(prev.graphData, renameMap)
+      if (!patched) return prev // collision — skip in-memory patch
+      return { ...prev, graphData: rebuildNodeRelationships(patched) }
+    })
+
+    // patch IndexedDB cache in background
+    const apiUrl = localStorage.getItem(STORAGE_KEY_URL)
+    if (apiUrl) {
+      patchTagRenameInCache(apiUrl, renameMap).catch(err => {
+        console.warn('[Graph] Failed to patch cache after tag rename:', err)
+      })
+    }
+  }, [])
+
   const cancelLoading = React.useCallback(() => {
     isCancelledRef.current = true
     if (abortControllerRef.current) {
@@ -435,6 +453,7 @@ export function useCraftGraph() {
     reload: () => loadGraph(true),
     refresh: refreshGraph,
     cancel: cancelLoading,
+    applyTagRename,
   }
 }
 

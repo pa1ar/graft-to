@@ -4,6 +4,7 @@ import {
   collectChangedBlocks,
   computeTagRenameMap,
   computeTagRename,
+  patchGraphDataForTagRename,
 } from '../tag-rename';
 import type { CraftBlock, GraphData } from '../types';
 
@@ -190,5 +191,146 @@ describe('computeTagRename', () => {
     graphData.links = [{ source: { id: 'tag:corp' } as any, target: 'doc1' }];
     const result = computeTagRename('corp', 'company', graphData);
     expect(result.affectedDocumentIds).toEqual(['doc1']);
+  });
+});
+
+// helper that includes document nodes for patchGraphDataForTagRename tests
+function makeFullGraphData(
+  tagPaths: string[],
+  docIds: string[],
+  tagDocLinks: Record<string, string[]>
+): GraphData {
+  const tagNodes = tagPaths.map(path => ({
+    id: `tag:${path}`,
+    title: `#${path}`,
+    type: 'tag' as const,
+    linkCount: 0,
+    color: '#34d399',
+    metadata: { tagPath: path, isNestedTag: path.includes('/') },
+  }));
+
+  const docNodes = docIds.map(id => ({
+    id,
+    title: `Doc ${id}`,
+    type: 'document' as const,
+    linkCount: 0,
+  }));
+
+  const links = Object.entries(tagDocLinks).flatMap(([tagPath, ids]) =>
+    ids.map(docId => ({ source: `tag:${tagPath}`, target: docId }))
+  );
+
+  // compute linkCounts
+  const linkCounts = new Map<string, number>();
+  for (const link of links) {
+    linkCounts.set(link.source, (linkCounts.get(link.source) ?? 0) + 1);
+    linkCounts.set(link.target, (linkCounts.get(link.target) ?? 0) + 1);
+  }
+
+  const nodes = [...tagNodes, ...docNodes].map(n => ({
+    ...n,
+    linkCount: linkCounts.get(n.id) ?? 0,
+  }));
+
+  return { nodes, links };
+}
+
+describe('patchGraphDataForTagRename', () => {
+  test('renames tag node ID and title', () => {
+    const graph = makeFullGraphData(['corp'], ['doc1'], { corp: ['doc1'] });
+    const renameMap = new Map([['corp', 'company']]);
+    const result = patchGraphDataForTagRename(graph, renameMap);
+
+    expect(result).not.toBeNull();
+    const tagNode = result!.nodes.find(n => n.id === 'tag:company');
+    expect(tagNode).toBeDefined();
+    expect(tagNode!.title).toBe('#company');
+    expect(tagNode!.metadata?.tagPath).toBe('company');
+    // old ID should be gone
+    expect(result!.nodes.find(n => n.id === 'tag:corp')).toBeUndefined();
+  });
+
+  test('updates links to reference new tag ID', () => {
+    const graph = makeFullGraphData(['corp'], ['doc1'], { corp: ['doc1'] });
+    const renameMap = new Map([['corp', 'company']]);
+    const result = patchGraphDataForTagRename(graph, renameMap)!;
+
+    const link = result.links[0];
+    const src = typeof link.source === 'object' ? (link.source as any).id : link.source;
+    expect(src).toBe('tag:company');
+  });
+
+  test('handles nested tag children', () => {
+    const graph = makeFullGraphData(['corp', 'corp/sub'], ['doc1'], {
+      corp: ['doc1'],
+      'corp/sub': ['doc1'],
+    });
+    const renameMap = new Map([['corp', 'company'], ['corp/sub', 'company/sub']]);
+    const result = patchGraphDataForTagRename(graph, renameMap)!;
+
+    expect(result.nodes.find(n => n.id === 'tag:company')).toBeDefined();
+    expect(result.nodes.find(n => n.id === 'tag:company/sub')).toBeDefined();
+    const subNode = result.nodes.find(n => n.id === 'tag:company/sub')!;
+    expect(subNode.metadata?.tagPath).toBe('company/sub');
+    expect(subNode.metadata?.isNestedTag).toBe(true);
+  });
+
+  test('returns null on tag collision', () => {
+    // 'other' already exists as a tag — renaming 'corp' → 'other' should fail
+    const graph = makeFullGraphData(['corp', 'other'], ['doc1'], { corp: ['doc1'], other: ['doc1'] });
+    const renameMap = new Map([['corp', 'other']]);
+    const result = patchGraphDataForTagRename(graph, renameMap);
+    expect(result).toBeNull();
+  });
+
+  test('preserves document nodes unchanged', () => {
+    const graph = makeFullGraphData(['corp'], ['doc1', 'doc2'], { corp: ['doc1'] });
+    const renameMap = new Map([['corp', 'company']]);
+    const result = patchGraphDataForTagRename(graph, renameMap)!;
+
+    const doc1 = result.nodes.find(n => n.id === 'doc1');
+    const doc2 = result.nodes.find(n => n.id === 'doc2');
+    expect(doc1).toBeDefined();
+    expect(doc1!.title).toBe('Doc doc1');
+    expect(doc2).toBeDefined();
+    expect(doc2!.title).toBe('Doc doc2');
+  });
+
+  test('recalculates linkCounts', () => {
+    const graph = makeFullGraphData(['corp'], ['doc1', 'doc2'], { corp: ['doc1', 'doc2'] });
+    const renameMap = new Map([['corp', 'company']]);
+    const result = patchGraphDataForTagRename(graph, renameMap)!;
+
+    const tagNode = result.nodes.find(n => n.id === 'tag:company')!;
+    expect(tagNode.linkCount).toBe(2);
+
+    const doc1 = result.nodes.find(n => n.id === 'doc1')!;
+    expect(doc1.linkCount).toBe(1);
+  });
+
+  test('updates linkedFrom on document nodes', () => {
+    const graph = makeFullGraphData(['corp'], ['doc1'], { corp: ['doc1'] });
+    // manually set linkedFrom to simulate real graph state
+    const doc1 = graph.nodes.find(n => n.id === 'doc1')!;
+    doc1.linkedFrom = ['tag:corp'];
+
+    const renameMap = new Map([['corp', 'company']]);
+    const result = patchGraphDataForTagRename(graph, renameMap)!;
+
+    const patchedDoc = result.nodes.find(n => n.id === 'doc1')!;
+    expect(patchedDoc.linkedFrom).toEqual(['tag:company']);
+  });
+
+  test('returns shallow copy when renameMap is empty', () => {
+    const graph = makeFullGraphData(['corp'], ['doc1'], { corp: ['doc1'] });
+    const renameMap = new Map<string, string>();
+    const result = patchGraphDataForTagRename(graph, renameMap);
+
+    expect(result).not.toBeNull();
+    // should be a copy, not same reference
+    expect(result).not.toBe(graph);
+    // content should be identical
+    expect(result!.nodes.length).toBe(graph.nodes.length);
+    expect(result!.links.length).toBe(graph.links.length);
   });
 });
