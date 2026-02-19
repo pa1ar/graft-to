@@ -102,23 +102,38 @@ export class CraftGraphFetcher {
     // wait if global cooldown is active (from another worker hitting 429)
     await this.waitForCooldown();
 
-    // Use proxy to avoid CORS issues
-    const proxyUrl = new URL('/api/craft' + endpoint, window.location.origin);
+    let url: string;
+    let headers: Record<string, string>;
 
-    Object.entries(params).forEach(([key, value]) => {
-      proxyUrl.searchParams.append(key, value);
-    });
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'x-craft-url': this.config.baseUrl,
-    };
-
-    if (this.config.apiKey) {
-      headers['x-craft-key'] = this.config.apiKey;
+    if (typeof window === 'undefined') {
+      // direct mode (Bun tests, scripts) — call Craft API directly
+      if (!this.config.apiKey) throw new Error('API key required for direct mode');
+      const directUrl = new URL(this.config.baseUrl + endpoint);
+      Object.entries(params).forEach(([key, value]) => {
+        directUrl.searchParams.append(key, value);
+      });
+      url = directUrl.toString();
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+      };
+    } else {
+      // browser mode — go through CORS proxy
+      const proxyUrl = new URL('/api/craft' + endpoint, window.location.origin);
+      Object.entries(params).forEach(([key, value]) => {
+        proxyUrl.searchParams.append(key, value);
+      });
+      url = proxyUrl.toString();
+      headers = {
+        'Content-Type': 'application/json',
+        'x-craft-url': this.config.baseUrl,
+      };
+      if (this.config.apiKey) {
+        headers['x-craft-key'] = this.config.apiKey;
+      }
     }
 
-    const response = await fetch(proxyUrl.toString(), { headers, signal });
+    const response = await fetch(url, { headers, signal });
 
     if (!response.ok) {
       // handle rate limit (429) with global cooldown
@@ -135,10 +150,16 @@ export class CraftGraphFetcher {
       }
 
       const errorText = await response.text();
+      // try to extract details from proxy JSON wrapper
+      let details = errorText;
+      try {
+        const parsed = JSON.parse(errorText);
+        if (parsed.details) details = parsed.details;
+      } catch { /* raw text */ }
       throw new CraftAPIError(
-        `API request failed: ${response.statusText}`,
+        `API request failed (${response.status}): ${details.slice(0, 200)}`,
         response.status,
-        errorText
+        details
       );
     }
 
@@ -302,18 +323,31 @@ export class CraftGraphFetcher {
   ): Promise<T> {
     await this.waitForCooldown();
 
-    const proxyUrl = new URL('/api/craft' + endpoint, window.location.origin);
+    let url: string;
+    let headers: Record<string, string>;
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'x-craft-url': this.config.baseUrl,
-    };
-
-    if (this.config.apiKey) {
-      headers['x-craft-key'] = this.config.apiKey;
+    if (typeof window === 'undefined') {
+      // direct mode (Bun tests, scripts)
+      if (!this.config.apiKey) throw new Error('API key required for direct mode');
+      url = this.config.baseUrl + endpoint;
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+      };
+    } else {
+      // browser mode — go through CORS proxy
+      const proxyUrl = new URL('/api/craft' + endpoint, window.location.origin);
+      url = proxyUrl.toString();
+      headers = {
+        'Content-Type': 'application/json',
+        'x-craft-url': this.config.baseUrl,
+      };
+      if (this.config.apiKey) {
+        headers['x-craft-key'] = this.config.apiKey;
+      }
     }
 
-    const response = await fetch(proxyUrl.toString(), {
+    const response = await fetch(url, {
       method: 'PUT',
       headers,
       body: JSON.stringify(body),
@@ -334,10 +368,17 @@ export class CraftGraphFetcher {
       }
 
       const errorText = await response.text();
+      // try to extract details from proxy JSON wrapper
+      let details = errorText;
+      try {
+        const parsed = JSON.parse(errorText);
+        if (parsed.details) details = parsed.details;
+      } catch { /* raw text */ }
+      console.error(`[API] PUT ${endpoint} failed (${response.status}):`, details);
       throw new CraftAPIError(
-        `API PUT request failed: ${response.statusText}`,
+        `API PUT request failed (${response.status}): ${details.slice(0, 200)}`,
         response.status,
-        errorText
+        details
       );
     }
 
@@ -364,8 +405,9 @@ export class CraftGraphFetcher {
   async findDocumentsWithTag(tagPath: string, signal?: AbortSignal): Promise<string[]> {
     // Escape special regex chars in the tag path (handles slashes)
     const escaped = tagPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // match #tagPath followed by "/" (child tag), a non-word/non-slash char, or end of string
-    const regex = `#${escaped}(?=/|[^a-zA-Z0-9_]|$)`;
+    // RE2-compatible: match #tagPath followed by a non-tag char, "/" (child), or end of string
+    // no lookahead — consuming the boundary char is fine since this is search-only
+    const regex = `#${escaped}([^a-zA-Z0-9_/]|/|$)`;
 
     try {
       const response = await this.fetchAPI<any>('/documents/search', { regexps: regex }, signal);

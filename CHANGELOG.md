@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.2 - Tag Rename Reliability
+
+### Fixed
+- Tag rename now saves per-document instead of one mega-batch — one bad block no longer kills all updates
+- Search regex uses RE2-compatible pattern (fixes 400 from Craft search API)
+- Error details from Craft API are now logged (were silently discarded)
+- Result counts accurately reflect saved vs affected documents
+- Partial rename no longer patches graph optimistically — cache is cleared, refresh rebuilds from ground truth
+
+### Improved
+- Added direct API mode for server-side usage (Bun tests, scripts)
+- Guard against missing API key in direct mode
+- Done dialog shows three states: full success, partial success, full failure
+
+### New
+- Integration tests against real Craft API (search, single-doc rename, multi-doc rename + revert)
+- Sponsor link in navbar, donate badge in README
+
+---
+
 ## 0.5.1 - Instant Tag Rename
 
 ### Improved

@@ -83,7 +83,16 @@ export function Header() {
               pa1ar
             </a>
           </div>
-          
+
+          <a
+            href="https://1ar.io/tools/graft"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-foreground hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
+          >
+            sponsor
+          </a>
+
           <a
             href="https://github.com/pa1ar/graft-do/"
             target="_blank"

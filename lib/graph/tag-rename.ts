@@ -206,22 +206,27 @@ export interface TagRenameProgress {
 }
 
 export interface TagRenameResult {
-  updatedDocumentCount: number;
-  updatedBlockCount: number;
+  /** documents that had blocks with the tag */
+  affectedDocumentCount: number;
+  /** documents successfully saved via API */
+  savedDocumentCount: number;
+  /** document IDs successfully saved via API */
+  savedDocumentIds: string[];
+  /** blocks successfully saved via API */
+  savedBlockCount: number;
   errors: Array<{ documentId: string; error: string }>;
 }
 
 const FETCH_CONCURRENCY = 5;
-const BATCH_SIZE = 200;
+const WRITE_CONCURRENCY = 3;
 
 /**
  * Execute the tag rename across all affected documents.
  *
- * Phase 0 — search fallback: also queries the API to catch any documents tagged
- *   after the last graph build. Results are unioned with the provided documentIds.
- * Phase A — parallel fetch: fetches all document blocks concurrently (5 workers).
- * Phase B — compute: collects all changed blocks across all documents.
- * Phase C — batched PUT: sends all updates in a single call (chunked at 200 blocks).
+ * Phase 0 — search: queries API to catch docs tagged after last graph build.
+ * Phase A — parallel fetch: fetches all document blocks concurrently.
+ * Phase B — per-document PUT: saves each document's changed blocks separately.
+ *   Failures are isolated — one doc failing doesn't affect others.
  */
 export async function executeTagRename(
   fetcher: CraftGraphFetcher,
@@ -231,36 +236,40 @@ export async function executeTagRename(
   onProgress: (progress: TagRenameProgress) => void,
   signal?: AbortSignal
 ): Promise<TagRenameResult> {
-  let updatedDocumentCount = 0;
-  let updatedBlockCount = 0;
+  let affectedDocumentCount = 0;
+  let savedDocumentCount = 0;
+  const savedDocumentIds: string[] = [];
+  let savedBlockCount = 0;
   const errors: Array<{ documentId: string; error: string }> = [];
 
-  // Phase 0: search fallback — catches docs added after the last graph build
+  // Phase 0: search — catches docs added after the last graph build
   onProgress({ current: 0, total: 0, message: 'Checking for recently tagged documents…' });
   const searchIds = await fetcher.findDocumentsWithTag(oldTagPath, signal);
-  if (signal?.aborted) return { updatedDocumentCount, updatedBlockCount, errors };
+  if (signal?.aborted) return { affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, errors };
 
   const allDocIds = [...new Set([...documentIds, ...searchIds])];
   const total = allDocIds.length;
 
-  if (total === 0) return { updatedDocumentCount, updatedBlockCount, errors };
+  if (total === 0) return { affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, errors };
 
-  // Phase A: parallel block fetch
+  // Phase A: parallel block fetch + collect changed blocks per document
   const changedBlocksMap = new Map<string, Array<{ id: string; markdown: string }>>();
   let fetchCompleted = 0;
-  const queue = [...allDocIds];
+  const fetchQueue = [...allDocIds];
 
-  const worker = async () => {
-    while (queue.length > 0) {
+  const fetchWorker = async () => {
+    while (fetchQueue.length > 0) {
       if (signal?.aborted) break;
-      const docId = queue.shift();
+      const docId = fetchQueue.shift();
       if (!docId) break;
 
       try {
         const blocks = await fetcher.fetchBlocks(docId, -1, signal);
         if (signal?.aborted) break;
         const changed = collectChangedBlocks(blocks, oldTagPath, newTagPath);
-        changedBlocksMap.set(docId, changed);
+        if (changed.length > 0) {
+          changedBlocksMap.set(docId, changed);
+        }
       } catch (err) {
         if (signal?.aborted) break;
         const message = err instanceof Error ? err.message : String(err);
@@ -280,48 +289,56 @@ export async function executeTagRename(
   await Promise.all(
     Array(Math.min(FETCH_CONCURRENCY, allDocIds.length))
       .fill(0)
-      .map(() => worker())
+      .map(() => fetchWorker())
   );
 
-  if (signal?.aborted) return { updatedDocumentCount, updatedBlockCount, errors };
+  if (signal?.aborted) return { affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, errors };
 
-  // Phase B: collect all changed blocks
-  const allChangedBlocks: Array<{ id: string; markdown: string }> = [];
-  for (const changed of changedBlocksMap.values()) {
-    if (changed.length > 0) {
-      allChangedBlocks.push(...changed);
-      updatedDocumentCount++;
-    }
+  affectedDocumentCount = changedBlocksMap.size;
+
+  if (affectedDocumentCount === 0) {
+    return { affectedDocumentCount: 0, savedDocumentCount: 0, savedDocumentIds: [], savedBlockCount: 0, errors };
   }
 
-  if (allChangedBlocks.length === 0) {
-    return { updatedDocumentCount: 0, updatedBlockCount: 0, errors };
-  }
+  // Phase B: per-document PUT — each doc's blocks saved separately
+  // failures are isolated: one bad doc doesn't kill others
+  const docsToWrite = Array.from(changedBlocksMap.entries());
+  let writeCompleted = 0;
+  const writeQueue = [...docsToWrite];
 
-  // Phase C: batched PUT — chunk at BATCH_SIZE to avoid payload limits
-  const batchCount = Math.ceil(allChangedBlocks.length / BATCH_SIZE);
-
-  for (let i = 0; i < allChangedBlocks.length; i += BATCH_SIZE) {
-    if (signal?.aborted) break;
-    const batch = allChangedBlocks.slice(i, i + BATCH_SIZE);
-    const batchIndex = Math.floor(i / BATCH_SIZE) + 1;
-
-    onProgress({
-      current: batchIndex,
-      total: batchCount,
-      message: `Saving changes (batch ${batchIndex}/${batchCount}, ${allChangedBlocks.length} blocks total)…`,
-    });
-
-    try {
-      await fetcher.updateBlocks(batch, signal);
-      updatedBlockCount += batch.length;
-    } catch (err) {
+  const writeWorker = async () => {
+    while (writeQueue.length > 0) {
       if (signal?.aborted) break;
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('[TagRename] Failed to update blocks batch:', message);
-      errors.push({ documentId: 'batch', error: message });
-    }
-  }
+      const entry = writeQueue.shift();
+      if (!entry) break;
+      const [docId, blocks] = entry;
 
-  return { updatedDocumentCount, updatedBlockCount, errors };
+      try {
+        await fetcher.updateBlocks(blocks, signal);
+        savedDocumentCount++;
+        savedDocumentIds.push(docId);
+        savedBlockCount += blocks.length;
+      } catch (err) {
+        if (signal?.aborted) break;
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[TagRename] Failed to save doc ${docId} (${blocks.length} blocks):`, message);
+        errors.push({ documentId: docId, error: message });
+      }
+
+      writeCompleted++;
+      onProgress({
+        current: writeCompleted,
+        total: docsToWrite.length,
+        message: `Saving document ${writeCompleted} of ${docsToWrite.length}…`,
+      });
+    }
+  };
+
+  await Promise.all(
+    Array(Math.min(WRITE_CONCURRENCY, docsToWrite.length))
+      .fill(0)
+      .map(() => writeWorker())
+  );
+
+  return { affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, errors };
 }

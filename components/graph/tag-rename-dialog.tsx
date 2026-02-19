@@ -98,6 +98,8 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
   }
 
   function handleDone() {
+    // only patch graph on full success — partial failure already cleared cache,
+    // so refresh will rebuild from ground truth
     if (result && result.errors.length === 0 && preview) {
       onRenameComplete(preview.renameMap)
     }
@@ -224,23 +226,44 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
           {phase === "done" && result && (
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-sm">
-                <IconCheck className="h-4 w-4 text-green-500 shrink-0" />
+                {result.errors.length === 0 ? (
+                  <IconCheck className="h-4 w-4 text-green-500 shrink-0" />
+                ) : result.savedDocumentCount > 0 ? (
+                  <IconAlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                ) : (
+                  <IconAlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                )}
                 <span>
-                  Renamed{" "}
-                  <code className="font-mono">#{oldTagPath}</code> to{" "}
-                  <code className="font-mono">#{newTagPath.trim()}</code>
+                  {result.errors.length === 0
+                    ? <>Renamed <code className="font-mono">#{oldTagPath}</code> to <code className="font-mono">#{newTagPath.trim()}</code></>
+                    : result.savedDocumentCount > 0
+                      ? <>Partially renamed <code className="font-mono">#{oldTagPath}</code></>
+                      : <>Failed to rename <code className="font-mono">#{oldTagPath}</code></>
+                  }
                 </span>
               </div>
               <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm space-y-0.5">
-                <div>{result.updatedDocumentCount} documents updated</div>
-                <div>{result.updatedBlockCount} blocks modified</div>
+                <div>{result.savedDocumentCount} of {result.affectedDocumentCount} documents saved</div>
+                <div>{result.savedBlockCount} blocks modified</div>
                 {result.errors.length > 0 && (
-                  <div className="text-destructive">{result.errors.length} errors (check console)</div>
+                  <div className="text-destructive">{result.errors.length} {result.errors.length === 1 ? 'error' : 'errors'} (check console for details)</div>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                The graph will update to reflect the changes.
-              </p>
+              {result.errors.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  The graph will update to reflect the changes.
+                </p>
+              )}
+              {result.errors.length > 0 && result.savedDocumentCount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Some documents failed. The graph will update for successful renames. Refresh to retry failed ones.
+                </p>
+              )}
+              {result.errors.length > 0 && result.savedDocumentCount === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No documents were saved. Check the browser console for the error details from the Craft API.
+                </p>
+              )}
             </div>
           )}
 

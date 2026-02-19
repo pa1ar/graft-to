@@ -4,7 +4,7 @@
 
 > Graft creates an interactive graph of your Craft document connections, making it easy to see how your notes relate to each other.
 
-[![Try Graft](https://img.shields.io/badge/Try-graft.to-fcc800?style=for-the-badge&labelColor=1a1a1a)](https://graft.to) [![Read on craft.do](https://img.shields.io/badge/Read_on-craft.do-fcc800?style=for-the-badge&labelColor=1a1a1a)](https://1ar.craft.me/graft)
+[![Try Graft](https://img.shields.io/badge/Try-graft.to-fcc800?style=for-the-badge&labelColor=1a1a1a)](https://graft.to) [![Read on 1ar.io](https://img.shields.io/badge/Read_on-1ar.io-fcc800?style=for-the-badge&labelColor=1a1a1a)](https://1ar.io/tools/graft) [![Donate](https://img.shields.io/badge/Donate-♥-ff69b4?style=for-the-badge&labelColor=1a1a1a)](https://1ar.io/tools/graft)
 
 ![Graft 2D Graph Visualization](./public/graft-to-2d.png)
 *Interactive 2D force-directed graph showing document connections*
