@@ -63,27 +63,6 @@ export function Header() {
         </div>
         
         <div className="flex items-center gap-4">
-          <div className="text-xs text-muted-foreground">
-            made with &lt;3 for{' '}
-            <a 
-              href="https://www.craft.do/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-foreground hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
-            >
-              Craft
-            </a>
-            {' '}by{' '}
-            <a 
-              href="https://x.com/pa1ar" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-foreground hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
-            >
-              pa1ar
-            </a>
-          </div>
-
           <a
             href="https://1ar.io/tools/graft"
             target="_blank"

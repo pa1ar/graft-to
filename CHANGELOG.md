@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.3 - Sponsor & UX Polish
+
+### Improved
+- Sponsor link in navbar and rename success screen
+- "Made with <3 for Craft by pa1ar" moved from navbar into the "What's Graft?" panel
+- "What's Graft?" copy clarified: Graft is read-only by default, write access only for tag renaming
+- First Graft link in info panel now points to 1ar.io/tools/graft
+- GitHub README: "Donate" badge renamed to "Sponsor" with matching amber color
+
+---
+
 ## 0.5.2 - Tag Rename Reliability
 
 ### Fixed

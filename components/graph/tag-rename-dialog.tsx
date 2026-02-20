@@ -251,7 +251,7 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
               </div>
               {result.errors.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  The graph will update to reflect the changes.
+                  The graph will update to reflect the changes. Did Graft help? Consider sponsoring.
                 </p>
               )}
               {result.errors.length > 0 && result.savedDocumentCount > 0 && (
@@ -305,7 +305,18 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
             <Button variant="outline" onClick={handleCancel}>Cancel</Button>
           )}
           {phase === "done" && (
-            <Button onClick={handleDone}>Done</Button>
+            <>
+              {result && result.errors.length === 0 && (
+                <a
+                  href="https://1ar.io/tools/graft"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" type="button">Sponsor</Button>
+                </a>
+              )}
+              <Button onClick={handleDone}>Done</Button>
+            </>
           )}
           {phase === "error" && (
             <>

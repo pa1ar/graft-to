@@ -143,9 +143,9 @@ function ConnectPanel({
           <AccordionContent>
             <div className="space-y-4 text-xs">
               <p>
-                <a href="https://1ar.craft.me/graft" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">Graft</a> is a read-only, <a href="https://github.com/pa1ar/graft-to" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">open-source</a> graph visualization of your <a href="https://craft.do" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">Craft Docs</a> space.
+                <a href="https://www.1ar.io/tools/graft" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">Graft</a> is a read-only by default, <a href="https://github.com/pa1ar/graft-to" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">open-source</a> graph visualization of your <a href="https://craft.do" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">Craft Docs</a> space.
               </p>
-              
+
               <div>
                 <p className="font-medium mb-2">What you need:</p>
                 <ul className="list-disc list-inside space-y-1.5 ml-2">
@@ -153,20 +153,32 @@ function ConnectPanel({
                   <li><strong>API Key</strong></li>
                 </ul>
                 <p className="mt-2 text-muted-foreground">
-                  Create one in Craft → <a 
-                    href="https://www.craft.do/imagine" 
-                    target="_blank" 
+                  Create one in Craft → <a
+                    href="https://www.craft.do/imagine"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
                   >
                     Imagine
                   </a>
                 </p>
+                <p className="mt-2 text-muted-foreground">
+                  Graft needs write access only for bulk tag renaming.
+                </p>
               </div>
 
               <div className="pt-3 border-t border-border">
                 <p className="text-muted-foreground">
                   Your API credentials are stored locally in your browser only. They are passed via headers through a proxy to avoid CORS issues, but <strong className="text-foreground">never logged or stored on the server</strong>.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-border">
+                <p className="text-muted-foreground">
+                  Made with &lt;3 for{' '}
+                  <a href="https://www.craft.do/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">Craft</a>
+                  {' '}by{' '}
+                  <a href="https://x.com/pa1ar" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors">pa1ar</a>
                 </p>
               </div>
             </div>
