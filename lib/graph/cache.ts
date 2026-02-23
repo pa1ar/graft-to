@@ -10,7 +10,8 @@ const DB_NAME = 'graft-cache';
 const DB_VERSION = 1;
 const STORE_NAME = 'graphs';
 const CACHE_VERSION = 4; // Bumped for optimized fetching with timestamps
-const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
+// no TTL — cache persists until user explicitly refreshes.
+// incremental refresh only re-fetches documents with newer timestamps.
 
 function hashString(str: string): string {
   let hash = 0;
@@ -66,14 +67,8 @@ export async function getCachedGraphWithMetadata(apiUrl: string): Promise<GraphC
           resolve(null);
           return;
         }
-        
+
         const age = Date.now() - cached.timestamp;
-        if (age > CACHE_TTL_MS) {
-          console.log('[Cache] Cache expired, age:', Math.round(age / 1000 / 60), 'minutes');
-          resolve(null);
-          return;
-        }
-        
         console.log('[Cache] Hit! Age:', Math.round(age / 1000 / 60), 'minutes');
         resolve(cached);
       };
@@ -90,32 +85,26 @@ export async function getCachedGraph(apiUrl: string): Promise<GraphData | null> 
     const transaction = db.transaction(STORE_NAME, 'readonly');
     const store = transaction.objectStore(STORE_NAME);
     const key = getCacheKey(apiUrl);
-    
+
     return new Promise((resolve, reject) => {
       const request = store.get(key);
-      
+
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const cached = request.result as GraphCache | undefined;
-        
+
         if (!cached) {
           resolve(null);
           return;
         }
-        
+
         if (cached.version !== CACHE_VERSION) {
           console.log('[Cache] Version mismatch, invalidating cache');
           resolve(null);
           return;
         }
-        
+
         const age = Date.now() - cached.timestamp;
-        if (age > CACHE_TTL_MS) {
-          console.log('[Cache] Cache expired, age:', Math.round(age / 1000 / 60), 'minutes');
-          resolve(null);
-          return;
-        }
-        
         console.log('[Cache] Hit! Age:', Math.round(age / 1000 / 60), 'minutes');
         resolve(cached.graphData);
       };
@@ -250,31 +239,39 @@ export async function shouldRefreshCache(
       request.onerror = () => resolve(true);
       request.onsuccess = () => {
         const cached = request.result as GraphCache | undefined;
-        
+
         if (!cached) {
           resolve(true);
           return;
         }
-        
-        const age = Date.now() - cached.timestamp;
-        if (age > CACHE_TTL_MS) {
-          console.log('[Cache] Cache expired');
-          resolve(true);
-          return;
-        }
-        
+
         if (cached.documentCount !== currentDocCount) {
           console.log('[Cache] Document count changed:', cached.documentCount, '->', currentDocCount);
           resolve(true);
           return;
         }
-        
+
         resolve(false);
       };
     });
   } catch (error) {
     console.warn('[Cache] Failed to check cache freshness:', error);
     return true;
+  }
+}
+
+let persistRequested = false;
+
+export async function requestPersistentStorage(): Promise<void> {
+  if (persistRequested) return;
+  persistRequested = true;
+  try {
+    if (navigator.storage?.persist) {
+      const granted = await navigator.storage.persist();
+      console.log('[Cache] Persistent storage:', granted ? 'granted' : 'denied');
+    }
+  } catch {
+    // not supported
   }
 }
 

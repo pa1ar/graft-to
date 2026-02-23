@@ -13,6 +13,7 @@ import {
   rebuildNodeRelationships,
   patchGraphDataForTagRename,
   patchTagRenameInCache,
+  requestPersistentStorage,
 } from "@/lib/graph"
 
 const STORAGE_KEY_URL = "craft_api_url"
@@ -442,6 +443,7 @@ export function useCraftGraph() {
   }, [])
 
   React.useEffect(() => {
+    requestPersistentStorage()
     // Only auto-load if not cancelled
     if (!isCancelledRef.current) {
       loadGraph()
