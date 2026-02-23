@@ -66,11 +66,12 @@ export function computeTagRename(
   );
 
   // extract document IDs from graph links where source is an affected tag node
+  // skip targets that are themselves tag nodes (parent→child hierarchy links)
   const docIds = new Set<string>();
   for (const link of graphData.links) {
     const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
     const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
-    if (affectedTagIds.has(sourceId)) {
+    if (affectedTagIds.has(sourceId) && !targetId.startsWith('tag:')) {
       docIds.add(targetId);
     }
   }
