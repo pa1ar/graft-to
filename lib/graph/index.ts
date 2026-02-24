@@ -22,4 +22,5 @@ export * from './parser';
 export * from './fetcher';
 export * from './cache';
 export * from './tag-rename';
+export * from './interaction';
 

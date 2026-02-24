@@ -3,6 +3,9 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import type { GraphData, GraphNode, GraphLink } from "@/lib/graph"
+import {
+  isLinkHighlighted as checkLinkHighlighted,
+} from "@/lib/graph/interaction"
 
 const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
   ssr: false,
@@ -339,71 +342,49 @@ export const ForceGraph3DComponent = React.forwardRef<ForceGraph3DRef, ForceGrap
     return { ...base, background: resolvedBackground ?? base.background }
   }, [theme])
 
-  const getActiveNode = (): GraphNode | null => {
-    return selectedNode || hoveredNode
-  }
-
-  const isLinkHighlighted = (link: any) => {
-    const activeNode = getActiveNode()
-    if (!activeNode) return true
-    const sourceId = typeof link.source === 'object' ? link.source.id : link.source
-    const targetId = typeof link.target === 'object' ? link.target.id : link.target
-    return sourceId === activeNode.id || targetId === activeNode.id
-  }
+  const activeNodeId = (selectedNode || hoveredNode)?.id ?? null
 
   const getNodeColor = React.useCallback((node: any) => {
-    // Tags and folders always keep their custom colors (green/blue)
     if (node.type === 'tag' || node.type === 'folder') {
       return node.color || colors.node
     }
 
-    // In bloom mode, use ranking-based rainbow colors for documents
-    if (bloomMode) {
-      return getBloomNodeColor(node.id)
-    }
+    if (bloomMode) return getBloomNodeColor(node.id)
+    if (newYearMode) return node.color || colors.node
 
-    // In new year mode, always use node's color property for colorful display
-    if (newYearMode) {
-      return node.color || colors.node
-    }
-
-    // Normal mode: document/block nodes are grey normally, yellow when active
-    const activeNode = getActiveNode()
-
-    if (!activeNode) return colors.node
-
-    if (node.id === activeNode.id) {
-      return colors.nodeHighlight
-    }
-
+    if (!activeNodeId) return colors.node
+    if (node.id === activeNodeId) return colors.nodeHighlight
     return colors.node
-  }, [bloomMode, newYearMode, colors, selectedNode, hoveredNode, getBloomNodeColor])
+  }, [bloomMode, newYearMode, colors, activeNodeId, getBloomNodeColor])
 
-  const getLinkColor = (link: any) => {
-    const activeNode = getActiveNode()
-    if (!activeNode) return colors.link
-    
-    if (isLinkHighlighted(link)) {
-      return colors.linkHighlight
-    }
-    
+  const getLinkColor = React.useCallback((link: any) => {
+    if (!activeNodeId) return colors.link
+    if (checkLinkHighlighted(link, activeNodeId)) return colors.linkHighlight
     return colors.link
-  }
+  }, [activeNodeId, colors.link, colors.linkHighlight])
 
-  const getLinkWidth = (link: any) => {
-    const activeNode = getActiveNode()
-    if (!activeNode) return 1
-    
-    if (isLinkHighlighted(link)) {
-      return 2
-    }
-    
-    return 1
-  }
+  const getLinkWidth = React.useCallback((link: any) => {
+    if (!activeNodeId) return 1
+    return checkLinkHighlighted(link, activeNodeId) ? 2 : 1
+  }, [activeNodeId])
 
-  // Memoize handlers to prevent infinite loops and unnecessary re-renders
+  // throttled hover — limit state updates to once per 50ms
+  const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingHoverRef = React.useRef<GraphNode | null>(null)
   const handleNodeHover = React.useCallback((node: any) => {
-    setHoveredNode(node)
+    pendingHoverRef.current = node
+    if (hoverTimerRef.current === null) {
+      hoverTimerRef.current = setTimeout(() => {
+        setHoveredNode(pendingHoverRef.current)
+        hoverTimerRef.current = null
+      }, 50)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current !== null) clearTimeout(hoverTimerRef.current)
+    }
   }, [])
 
   const handleNodeClick = React.useCallback((node: any) => {

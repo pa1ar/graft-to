@@ -3,6 +3,13 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import type { GraphData, GraphNode, GraphLink } from "@/lib/graph"
+import {
+  buildAdjacencyIndex,
+  isNodeConnected as checkNodeConnected,
+  isLinkHighlighted as checkLinkHighlighted,
+  hexToRgba,
+  type AdjacencyIndex,
+} from "@/lib/graph/interaction"
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
@@ -274,98 +281,42 @@ export const ForceGraph = React.forwardRef<ForceGraphRef, ForceGraphProps>(
     return { ...base, background: resolvedBackground ?? base.background }
   }, [theme])
 
-  // Helper to convert hex to rgba
-  const hexToRgba = (hex: string, alpha: number): string => {
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`
-  }
+  // O(1) adjacency lookup — rebuilt only when links change
+  const adjacencyIndex = React.useMemo<AdjacencyIndex>(
+    () => buildAdjacencyIndex(graphDataState.links),
+    [graphDataState.links]
+  )
 
-  // Get the active node (selected takes precedence over hovered)
-  const getActiveNode = (): GraphNode | null => {
-    return selectedNode || hoveredNode
-  }
+  const activeNodeId = (selectedNode || hoveredNode)?.id ?? null
 
-  // Check if a node is connected to the active node
-  const isNodeConnected = (nodeId: string): boolean => {
-    const activeNode = getActiveNode()
-    if (!activeNode) return true
-    if (nodeId === activeNode.id) return true
-    
-    // Check if node is connected via any link
-    return graphDataState.links.some((link: any) => {
-      const sourceId = typeof link.source === 'object' ? link.source.id : link.source
-      const targetId = typeof link.target === 'object' ? link.target.id : link.target
-      return (sourceId === activeNode.id && targetId === nodeId) ||
-             (targetId === activeNode.id && sourceId === nodeId)
-    })
-  }
-
-  // Check if a link is connected to the active node
-  const isLinkHighlighted = (link: any) => {
-    const activeNode = getActiveNode()
-    if (!activeNode) return true
-    const sourceId = typeof link.source === 'object' ? link.source.id : link.source
-    const targetId = typeof link.target === 'object' ? link.target.id : link.target
-    return sourceId === activeNode.id || targetId === activeNode.id
-  }
-
-  // Node color function
-  const getNodeColor = (node: any) => {
-    const activeNode = getActiveNode()
-
-    // Tags and folders: always use their custom color (green/blue)
+  // Stable color/width callbacks — only update when dependencies actually change
+  const getNodeColor = React.useCallback((node: any) => {
     if (node.type === 'tag' || node.type === 'folder') {
-      if (!activeNode) return node.color
-
-      // Mute if not connected
-      if (!isNodeConnected(node.id)) {
+      if (!activeNodeId) return node.color
+      if (!checkNodeConnected(node.id, activeNodeId, adjacencyIndex)) {
         return hexToRgba(node.color, muteOpacity)
       }
-
       return node.color
     }
 
-    // Document/block nodes: grey normally, yellow when active
-    if (!activeNode) return colors.node
-
-    if (node.id === activeNode.id) {
-      return colors.nodeHighlight
-    }
-
-    // Mute nodes that aren't connected to the active node
-    if (!isNodeConnected(node.id)) {
+    if (!activeNodeId) return colors.node
+    if (node.id === activeNodeId) return colors.nodeHighlight
+    if (!checkNodeConnected(node.id, activeNodeId, adjacencyIndex)) {
       return hexToRgba(colors.node, muteOpacity)
     }
-
     return colors.node
-  }
+  }, [activeNodeId, adjacencyIndex, muteOpacity, colors.node, colors.nodeHighlight])
 
-  // Link color function
-  const getLinkColor = (link: any) => {
-    const activeNode = getActiveNode()
-    if (!activeNode) return colors.link
-    
-    if (isLinkHighlighted(link)) {
-      return colors.linkHighlight
-    }
-    
-    // Mute links that aren't connected to the active node
+  const getLinkColor = React.useCallback((link: any) => {
+    if (!activeNodeId) return colors.link
+    if (checkLinkHighlighted(link, activeNodeId)) return colors.linkHighlight
     return hexToRgba(colors.link, muteOpacity)
-  }
+  }, [activeNodeId, muteOpacity, colors.link, colors.linkHighlight])
 
-  // Link width function
-  const getLinkWidth = (link: any) => {
-    const activeNode = getActiveNode()
-    if (!activeNode) return 1
-    
-    if (isLinkHighlighted(link)) {
-      return 2
-    }
-    
-    return 1
-  }
+  const getLinkWidth = React.useCallback((link: any) => {
+    if (!activeNodeId) return 1
+    return checkLinkHighlighted(link, activeNodeId) ? 2 : 1
+  }, [activeNodeId])
 
   // Expose recenter method via ref
   React.useImperativeHandle(ref, () => ({
@@ -377,27 +328,51 @@ export const ForceGraph = React.forwardRef<ForceGraphRef, ForceGraphProps>(
   }), [])
 
   // Draw labels based on showLabels prop
-  const drawNodeLabel = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    // Only show labels if showLabels is enabled
+  const drawNodeLabel = React.useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
     if (!showLabels) return
 
-    // Calculate opacity - mute label opacity for nodes not connected to active node
     let opacity = 1
-    const activeNode = getActiveNode()
-    if (activeNode && !isNodeConnected(node.id)) {
+    if (activeNodeId && !checkNodeConnected(node.id, activeNodeId, adjacencyIndex)) {
       opacity *= muteOpacity
     }
-    
+
     const label = node.title
     const fontSize = 12 / globalScale
     ctx.font = `${fontSize}px Sans-Serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    
-    // Draw text with opacity
+
     ctx.fillStyle = `rgba(${theme === 'dark' ? '229, 231, 235' : '31, 41, 55'}, ${opacity})`
     ctx.fillText(label, node.x, node.y + 12)
-  }
+  }, [showLabels, activeNodeId, adjacencyIndex, muteOpacity, theme])
+
+  // throttled hover — limit state updates to once per 50ms
+  const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingHoverRef = React.useRef<GraphNode | null>(null)
+  const handleNodeHover = React.useCallback((node: any) => {
+    pendingHoverRef.current = node
+    if (hoverTimerRef.current === null) {
+      hoverTimerRef.current = setTimeout(() => {
+        setHoveredNode(pendingHoverRef.current)
+        hoverTimerRef.current = null
+      }, 50)
+    }
+  }, [])
+
+  // cleanup hover timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current !== null) clearTimeout(hoverTimerRef.current)
+    }
+  }, [])
+
+  const handleNodeClick = React.useCallback((node: any) => {
+    onNodeClick?.(node as GraphNode)
+  }, [onNodeClick])
+
+  const handleBackgroundClick = React.useCallback(() => {
+    onBackgroundClick?.()
+  }, [onBackgroundClick])
 
   return (
     <ForceGraph2D
@@ -415,9 +390,9 @@ export const ForceGraph = React.forwardRef<ForceGraphRef, ForceGraphProps>(
       linkColor={getLinkColor}
       linkWidth={getLinkWidth}
       linkDirectionalParticles={0}
-      onNodeHover={(node: any) => setHoveredNode(node)}
-      onNodeClick={(node: any) => onNodeClick?.(node as GraphNode)}
-      onBackgroundClick={() => onBackgroundClick?.()}
+      onNodeHover={handleNodeHover}
+      onNodeClick={handleNodeClick}
+      onBackgroundClick={handleBackgroundClick}
       onZoom={(transform: any) => {
         // Defer state update to avoid updating during render
         if (zoomUpdateFrameRef.current !== null) {

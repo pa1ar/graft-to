@@ -9,6 +9,7 @@ import { NodePreview } from "@/components/graph/node-preview"
 import { GraphControls } from "@/components/graph/graph-controls"
 import { TagRenameDialog } from "@/components/graph/tag-rename-dialog"
 import { useCraftGraph } from "@/hooks/use-craft-graph"
+import { filterGraphData } from "@/lib/graph/interaction"
 import type { GraphData, GraphNode } from "@/lib/graph"
 
 const EMPTY_GRAPH: GraphData = { nodes: [], links: [] }
@@ -154,35 +155,7 @@ export default function Page() {
   // Filter graph data based on linking type toggles
   const filteredGraphData = React.useMemo(() => {
     if (!graphData) return null;
-
-    const nodes = graphData.nodes.filter(node => {
-      if (node.type === 'tag') return showTags;
-      if (node.type === 'folder') return showFolders;
-      return true; // Always show documents/blocks
-    });
-
-    const nodeIds = new Set(nodes.map(n => n.id));
-
-    const links = graphData.links.filter(link => {
-      const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
-      const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
-
-      if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) return false;
-
-      // Filter wikilinks (document-to-document connections)
-      const sourceNode = graphData.nodes.find(n => n.id === sourceId);
-      const targetNode = graphData.nodes.find(n => n.id === targetId);
-
-      if (!showWikilinks &&
-          sourceNode?.type === 'document' &&
-          targetNode?.type === 'document') {
-        return false;
-      }
-
-      return true;
-    });
-
-    return { nodes, links };
+    return filterGraphData(graphData, { showWikilinks, showTags, showFolders });
   }, [graphData, showWikilinks, showTags, showFolders]);
 
   const handleNodeSelect = React.useCallback((nodeId: string) => {
@@ -200,6 +173,10 @@ export default function Page() {
       graph2DRef.current?.recenter()
     }
   }, [is3D])
+
+  const handleClearSelection = React.useCallback(() => {
+    setSelectedNode(null)
+  }, [])
 
   return (
     <div className="relative w-screen overflow-hidden" style={{ height: "calc(100vh - var(--header-height))" }}>
@@ -237,7 +214,7 @@ export default function Page() {
           ref={graph3DRef}
           data={filteredGraphData ?? EMPTY_GRAPH}
           onNodeClick={setSelectedNode}
-          onBackgroundClick={() => setSelectedNode(null)}
+          onBackgroundClick={handleClearSelection}
           selectedNode={selectedNode}
           width={dimensions.width}
           height={dimensions.height}
@@ -251,7 +228,7 @@ export default function Page() {
           ref={graph2DRef}
           data={filteredGraphData ?? EMPTY_GRAPH}
           onNodeClick={setSelectedNode}
-          onBackgroundClick={() => setSelectedNode(null)}
+          onBackgroundClick={handleClearSelection}
           selectedNode={selectedNode}
           width={dimensions.width}
           height={dimensions.height}
@@ -262,7 +239,7 @@ export default function Page() {
       <NodePreview
         node={selectedNode}
         graphData={graphData}
-        onClose={() => setSelectedNode(null)}
+        onClose={handleClearSelection}
         onNodeSelect={handleNodeSelect}
         onTagRename={(node) => setTagRenameNode(node)}
       />

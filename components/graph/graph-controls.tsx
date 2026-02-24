@@ -366,15 +366,22 @@ interface SearchPanelProps {
 
 function SearchPanel({ graphData, onNodeSelect }: SearchPanelProps) {
   const [searchQuery, setSearchQuery] = React.useState("")
-  
+  const [debouncedQuery, setDebouncedQuery] = React.useState("")
+
+  // debounce search input by 150ms
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 150)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
   const searchResults = React.useMemo(() => {
-    if (!graphData || !searchQuery.trim()) return []
-    
-    const query = searchQuery.toLowerCase()
+    if (!graphData || !debouncedQuery.trim()) return []
+
+    const query = debouncedQuery.toLowerCase()
     return graphData.nodes
       .filter(node => node.title.toLowerCase().includes(query))
-      .slice(0, 10) // Limit to 10 results
-  }, [graphData, searchQuery])
+      .slice(0, 10)
+  }, [graphData, debouncedQuery])
   
   const handleResultClick = (nodeId: string) => {
     onNodeSelect?.(nodeId)

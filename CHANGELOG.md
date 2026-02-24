@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.0 - Interaction Performance
+
+### Improved
+- Adjacency index for O(1) node connection lookups (was O(n*m) per node per frame)
+- Stable `useCallback` references for color/width functions prevent unnecessary graph re-renders
+- Throttled hover events (50ms) reduce state update cascading during mouse movement
+- Debounced search input (150ms) avoids filtering all nodes on every keystroke
+- `transition-colors` on buttons instead of `transition-all` eliminates layout recalculation
+- Map-based node type lookups in graph filtering replace O(n) `.find()` per link
+
+### New
+- Extracted `lib/graph/interaction.ts` — pure, testable graph interaction logic (adjacency index, filtering, color helpers)
+- 29 new unit tests covering all interaction functions
+
+---
+
 ## 0.5.3 - Sponsor & UX Polish
 
 ### Improved
