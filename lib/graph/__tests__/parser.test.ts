@@ -38,6 +38,29 @@ describe('extractHashtags', () => {
   test('empty string returns empty array', () => {
     expect(extractHashtags('')).toEqual([]);
   });
+
+  test('does not extract hashtags inside markdown links', () => {
+    const tags = extractHashtags('[Post with #bakipose #animecosplay](https://instagram.com/reel/123)');
+    expect(tags).toEqual([]);
+  });
+
+  test('extracts standalone tags alongside markdown links', () => {
+    const tags = extractHashtags('#real [embed #fake](https://example.com) #also_real');
+    expect(tags).toContain('real');
+    expect(tags).toContain('also_real');
+    expect(tags).not.toContain('fake');
+  });
+
+  test('does not extract hashtags inside inline code', () => {
+    const tags = extractHashtags('active #tag inactive `#code_ref`');
+    expect(tags).toContain('tag');
+    expect(tags).not.toContain('code_ref');
+  });
+
+  test('handles multiple inline code spans', () => {
+    const tags = extractHashtags('`#a` #real `#b`');
+    expect(tags).toEqual(['real']);
+  });
 });
 
 describe('extractTagsFromBlock', () => {
@@ -58,6 +81,27 @@ describe('extractTagsFromBlock', () => {
 
   test('returns empty for block with no markdown', () => {
     expect(extractTagsFromBlock(block('1'))).toEqual([]);
+  });
+
+  test('skips richUrl blocks', () => {
+    const b: CraftBlock = { id: '1', type: 'richUrl', markdown: '#bakipose #baki' };
+    expect(extractTagsFromBlock(b)).toEqual([]);
+  });
+
+  test('skips code blocks', () => {
+    const b: CraftBlock = { id: '1', type: 'code', markdown: '#embed_meta' };
+    expect(extractTagsFromBlock(b)).toEqual([]);
+  });
+
+  test('skips children of richUrl blocks', () => {
+    const child = block('child', '#hidden');
+    const parent: CraftBlock = { id: 'parent', type: 'richUrl', markdown: undefined, content: [child] };
+    expect(extractTagsFromBlock(parent)).toEqual([]);
+  });
+
+  test('still extracts tags from text blocks', () => {
+    const b: CraftBlock = { id: '1', type: 'text', markdown: '#legit' };
+    expect(extractTagsFromBlock(b)).toContain('legit');
   });
 });
 

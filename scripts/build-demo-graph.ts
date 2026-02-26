@@ -71,11 +71,19 @@ function extractBlockLinks(markdown: string): string[] {
   return links;
 }
 
+function stripNonTagContent(markdown: string): string {
+  return markdown
+    .replace(/`[^`]*`/g, '')            // inline code
+    .replace(/\[[^\]]*\]\([^)]*\)/g, '') // markdown links
+  ;
+}
+
 function extractHashtags(markdown: string): string[] {
   const tags: string[] = [];
   let match;
+  const cleaned = stripNonTagContent(markdown);
   HASHTAG_REGEX.lastIndex = 0;
-  while ((match = HASHTAG_REGEX.exec(markdown)) !== null) {
+  while ((match = HASHTAG_REGEX.exec(cleaned)) !== null) {
     const fullTag = match[1]; // e.g., "project/work"
     tags.push(fullTag);
 
@@ -106,7 +114,11 @@ function extractLinksFromBlock(block: CraftBlock): string[] {
   return links;
 }
 
+const SKIP_TAG_BLOCK_TYPES = new Set(['richUrl', 'code']);
+
 function extractTagsFromBlock(block: CraftBlock): string[] {
+  if (SKIP_TAG_BLOCK_TYPES.has(block.type)) return [];
+
   const tags: string[] = [];
   if (block.markdown) {
     tags.push(...extractHashtags(block.markdown));

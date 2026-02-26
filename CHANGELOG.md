@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0 - False Tag Filtering
+
+### Fixed
+- Hashtags inside social media embeds (Instagram, etc.) no longer appear as graph tags
+- Hashtags inside inline code (`#tag`) no longer appear as graph tags
+- Skip `richUrl` and `code` block types entirely for tag extraction (embed metadata)
+- Strip markdown link text and inline code before hashtag regex runs
+
+### New
+- 10 new parser tests covering embed filtering, inline code, and block type guards
+
+---
+
 ## 0.6.0 - Interaction Performance
 
 ### Improved
