@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.0 - False Tag Filtering
+## 0.6.1 - False Tag Filtering
 
 ### Fixed
 - Hashtags inside social media embeds (Instagram, etc.) no longer appear as graph tags
