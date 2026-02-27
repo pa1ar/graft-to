@@ -225,7 +225,10 @@ export function NodePreview({ node, graphData, onClose, onNodeSelect, onTagRenam
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => onTagRename?.(node)}
+                onClick={() => {
+                  track("Tag Rename Open")
+                  onTagRename?.(node)
+                }}
                 disabled={!onTagRename}
               >
                 <IconPencil className="mr-2 h-4 w-4" />

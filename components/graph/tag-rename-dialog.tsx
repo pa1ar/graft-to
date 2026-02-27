@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { track } from "@vercel/analytics/react"
 import { IconAlertTriangle, IconLoader, IconCheck, IconArrowRight } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -83,10 +84,18 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
           // partial failure — clear cache so next load rebuilds from ground truth
           await clearCache(apiUrl)
         }
+        track("Tag Rename Execute", {
+          documents: res.savedDocumentCount,
+          errors: res.errors.length,
+        })
         setPhase("done")
       }
     } catch (err) {
       if (abortRef.current?.signal.aborted) return
+      track("Tag Rename Execute", {
+        documents: 0,
+        errors: err instanceof Error ? err.message : "unknown",
+      })
       setErrorMessage(err instanceof Error ? err.message : String(err))
       setPhase("error")
     }
@@ -311,6 +320,7 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
                   href="https://1ar.io/tools/graft"
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => track("Sponsor Click", { source: "rename" })}
                 >
                   <Button variant="outline" type="button">Sponsor</Button>
                 </a>

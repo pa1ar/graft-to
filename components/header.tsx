@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { track } from "@vercel/analytics/react"
 
 const HEADER_EVENT = "graft:header-size-change"
 const HEADER_FALLBACK = 56
@@ -68,6 +69,7 @@ export function Header() {
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-foreground hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
+            onClick={() => track("Sponsor Click", { source: "navbar" })}
           >
             sponsor
           </a>
