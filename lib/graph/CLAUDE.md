@@ -7,8 +7,11 @@ This directory contains the framework-agnostic graph processing library. It can 
 - **`types.ts`** - TypeScript type definitions for graph data, Craft API responses, and caching
 - **`parser.ts`** - Link/tag extraction from markdown and graph building
 - **`fetcher.ts`** - Craft API client with optimized parallel fetching
-- **`cache.ts`** - IndexedDB caching layer with 24-hour TTL
+- **`cache.ts`** - IndexedDB caching layer (persistent, no TTL)
+- **`interaction.ts`** - Pure graph interaction logic (adjacency index, filtering, color helpers)
+- **`tag-rename.ts`** - Mass tag rename with nested tag support
 - **`index.ts`** - Public API exports
+- **`__tests__/`** - Unit tests for parser, fetcher, interaction, tag-rename
 
 ## Link Extraction
 
@@ -201,7 +204,7 @@ interface GraphCache {
 
 **Cache Key:** `graph_${hash(apiUrl)}` where hash is a simple string hash function
 
-**TTL:** 24 hours (defined in `cache.ts:12`)
+**TTL:** None — cache persists until user explicitly refreshes
 
 **Operations:**
 - `getCachedGraph(apiUrl)` - Get cached graph data if valid

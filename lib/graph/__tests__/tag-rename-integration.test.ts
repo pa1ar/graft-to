@@ -53,8 +53,9 @@ describe.skipIf(!canRun)('tag rename integration (real Craft API)', () => {
     let changed: Array<{ id: string; markdown: string }> = [];
     for (const id of docIds) {
       const blocks = await fetcher.fetchBlocks(id, -1);
-      changed = collectChangedBlocks(blocks, TAG, TAG_TMP);
-      if (changed.length > 0) {
+      const result = collectChangedBlocks(blocks, TAG, TAG_TMP);
+      if (result.changed.length > 0) {
+        changed = result.changed;
         docId = id;
         break;
       }
@@ -68,17 +69,17 @@ describe.skipIf(!canRun)('tag rename integration (real Craft API)', () => {
     // verify: old tag is gone
     const after = await fetcher.fetchBlocks(docId, -1);
     const stillOld = collectChangedBlocks(after, TAG, 'xxx');
-    expect(stillOld.length).toBe(0);
+    expect(stillOld.changed.length).toBe(0);
 
     // revert
     const revert = collectChangedBlocks(after, TAG_TMP, TAG);
-    expect(revert.length).toBe(changed.length);
-    await fetcher.updateBlocks(revert);
+    expect(revert.changed.length).toBe(changed.length);
+    await fetcher.updateBlocks(revert.changed);
 
     // verify revert
     const reverted = await fetcher.fetchBlocks(docId, -1);
     const back = collectChangedBlocks(reverted, TAG, TAG_TMP);
-    expect(back.length).toBe(changed.length);
+    expect(back.changed.length).toBe(changed.length);
     console.log(`[Single] OK`);
   }, 30000);
 
@@ -105,7 +106,7 @@ describe.skipIf(!canRun)('tag rename integration (real Craft API)', () => {
     // verify spot-check: first doc should have new tag, not old
     const after = await fetcher.fetchBlocks(subset[0], -1);
     const leftover = collectChangedBlocks(after, TAG, 'xxx');
-    expect(leftover.length).toBe(0);
+    expect(leftover.changed.length).toBe(0);
 
     // revert
     const revertResult = await executeTagRename(

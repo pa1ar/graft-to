@@ -6,6 +6,19 @@
 import type { GraphData, CraftBlock } from './types';
 import type { CraftGraphFetcher } from './fetcher';
 
+/** HTML tags or multi-block content that Craft's PUT endpoint rejects */
+const HTML_TAG_REGEX = /<\/?[a-zA-Z][^>]*>/;
+const MULTI_BLOCK_REGEX = /\n\n/;
+
+/**
+ * Check if a block's markdown is safe to send back via PUT.
+ * Craft's GET can return HTML tags (<span>, etc.) and multi-paragraph content
+ * that its own PUT endpoint rejects with VALIDATION_ERROR.
+ */
+export function isBlockMarkdownSafeForPut(markdown: string): boolean {
+  return !HTML_TAG_REGEX.test(markdown) && !MULTI_BLOCK_REGEX.test(markdown);
+}
+
 export interface TagRenamePreview {
   /** All tag paths that will be renamed (including nested children) */
   affectedTagPaths: string[];
@@ -100,22 +113,35 @@ export function applyTagRenameToMarkdown(
   return markdown.replace(regex, `#${newTagPath}`);
 }
 
+export interface CollectChangedBlocksResult {
+  changed: Array<{ id: string; markdown: string }>;
+  /** blocks where tag matched but updated markdown is unsafe for PUT */
+  skipped: Array<{ id: string; reason: string }>;
+}
+
 /**
  * Walk a block tree and apply the tag rename to every block's markdown.
- * Returns only the blocks that actually changed (with updated markdown).
+ * Returns changed blocks (safe for PUT) and skipped blocks (tag matched but
+ * updated markdown contains HTML or multi-block content that Craft rejects).
  */
 export function collectChangedBlocks(
   blocks: CraftBlock[],
   oldTagPath: string,
   newTagPath: string
-): Array<{ id: string; markdown: string }> {
+): CollectChangedBlocksResult {
   const changed: Array<{ id: string; markdown: string }> = [];
+  const skipped: Array<{ id: string; reason: string }> = [];
 
   function walk(block: CraftBlock) {
     if (block.markdown) {
       const updated = applyTagRenameToMarkdown(oldTagPath, newTagPath, block.markdown);
       if (updated !== block.markdown) {
-        changed.push({ id: block.id, markdown: updated });
+        if (isBlockMarkdownSafeForPut(updated)) {
+          changed.push({ id: block.id, markdown: updated });
+        } else {
+          const reason = HTML_TAG_REGEX.test(updated) ? 'contains HTML' : 'multi-block content';
+          skipped.push({ id: block.id, reason });
+        }
       }
     }
     if (block.content) {
@@ -129,7 +155,7 @@ export function collectChangedBlocks(
     walk(block);
   }
 
-  return changed;
+  return { changed, skipped };
 }
 
 /**
@@ -215,6 +241,10 @@ export interface TagRenameResult {
   savedDocumentIds: string[];
   /** blocks successfully saved via API */
   savedBlockCount: number;
+  /** blocks skipped because their markdown is unsafe for PUT */
+  skippedBlockCount: number;
+  /** document IDs where ALL changed blocks were skipped (no blocks could be saved) */
+  skippedDocumentIds: string[];
   errors: Array<{ documentId: string; error: string }>;
 }
 
@@ -241,17 +271,20 @@ export async function executeTagRename(
   let savedDocumentCount = 0;
   const savedDocumentIds: string[] = [];
   let savedBlockCount = 0;
+  let skippedBlockCount = 0;
+  const skippedDocumentIds: string[] = [];
   const errors: Array<{ documentId: string; error: string }> = [];
+  const emptyResult = () => ({ affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, skippedBlockCount, skippedDocumentIds, errors });
 
   // Phase 0: search — catches docs added after the last graph build
   onProgress({ current: 0, total: 0, message: 'Checking for recently tagged documents…' });
   const searchIds = await fetcher.findDocumentsWithTag(oldTagPath, signal);
-  if (signal?.aborted) return { affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, errors };
+  if (signal?.aborted) return emptyResult();
 
   const allDocIds = [...new Set([...documentIds, ...searchIds])];
   const total = allDocIds.length;
 
-  if (total === 0) return { affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, errors };
+  if (total === 0) return emptyResult();
 
   // Phase A: parallel block fetch + collect changed blocks per document
   const changedBlocksMap = new Map<string, Array<{ id: string; markdown: string }>>();
@@ -267,9 +300,14 @@ export async function executeTagRename(
       try {
         const blocks = await fetcher.fetchBlocks(docId, -1, signal);
         if (signal?.aborted) break;
-        const changed = collectChangedBlocks(blocks, oldTagPath, newTagPath);
+        const { changed, skipped } = collectChangedBlocks(blocks, oldTagPath, newTagPath);
+        skippedBlockCount += skipped.length;
         if (changed.length > 0) {
           changedBlocksMap.set(docId, changed);
+        }
+        if (skipped.length > 0 && changed.length === 0) {
+          // all matching blocks in this doc were skipped — nothing to save
+          skippedDocumentIds.push(docId);
         }
       } catch (err) {
         if (signal?.aborted) break;
@@ -293,12 +331,13 @@ export async function executeTagRename(
       .map(() => fetchWorker())
   );
 
-  if (signal?.aborted) return { affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, errors };
+  if (signal?.aborted) return emptyResult();
 
-  affectedDocumentCount = changedBlocksMap.size;
+  // include both saveable docs and skip-only docs in the count
+  affectedDocumentCount = changedBlocksMap.size + skippedDocumentIds.length;
 
-  if (affectedDocumentCount === 0) {
-    return { affectedDocumentCount: 0, savedDocumentCount: 0, savedDocumentIds: [], savedBlockCount: 0, errors };
+  if (changedBlocksMap.size === 0) {
+    return emptyResult();
   }
 
   // Phase B: per-document PUT — each doc's blocks saved separately
@@ -341,5 +380,5 @@ export async function executeTagRename(
       .map(() => writeWorker())
   );
 
-  return { affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, errors };
+  return { affectedDocumentCount, savedDocumentCount, savedDocumentIds, savedBlockCount, skippedBlockCount, skippedDocumentIds, errors };
 }

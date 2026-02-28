@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.2 - Tag Rename Error Handling
+
+### Fixed
+- Blocks with HTML tags or multi-paragraph content (returned by Craft GET but rejected by PUT) are now skipped instead of causing API errors
+- Partial success no longer nukes the IndexedDB cache — graph stays intact, refresh rebuilds only what's needed
+- Graph patch only applied when all saveable documents succeed, preventing stale visual state
+
+### Improved
+- Dialog shows skipped block count with explanation when blocks contain unsupported markdown
+- Three-state result icon: green (full success), amber (skips or partial errors), red (total failure)
+- `affectedDocumentCount` now includes skip-only documents for accurate progress reporting
+
+### New
+- `isBlockMarkdownSafeForPut()` validation for detecting unsafe block content before API calls
+- `collectChangedBlocks` returns `{ changed, skipped }` with per-block skip reasons
+- 13 new unit tests for markdown safety checks and skip behavior
+
+---
+
 ## 0.6.1 - False Tag Filtering
 
 ### Fixed

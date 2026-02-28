@@ -5,6 +5,7 @@ import {
   computeTagRenameMap,
   computeTagRename,
   patchGraphDataForTagRename,
+  isBlockMarkdownSafeForPut,
 } from '../tag-rename';
 import type { CraftBlock, GraphData } from '../types';
 
@@ -64,48 +65,127 @@ describe('applyTagRenameToMarkdown', () => {
   });
 });
 
+describe('isBlockMarkdownSafeForPut', () => {
+  test('plain text is safe', () => {
+    expect(isBlockMarkdownSafeForPut('hello world #tag')).toBe(true);
+  });
+
+  test('single newline is safe', () => {
+    expect(isBlockMarkdownSafeForPut('line one\nline two')).toBe(true);
+  });
+
+  test('HTML opening tag is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('text <span>styled</span> more')).toBe(false);
+  });
+
+  test('HTML closing tag is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('text </span> more')).toBe(false);
+  });
+
+  test('self-closing HTML tag is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('text <br/> more')).toBe(false);
+  });
+
+  test('multi-block content (double newline) is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('paragraph one\n\nparagraph two')).toBe(false);
+  });
+
+  test('angle brackets in non-HTML context are safe', () => {
+    expect(isBlockMarkdownSafeForPut('5 < 10 and 10 > 5')).toBe(true);
+  });
+
+  test('markdown links are safe', () => {
+    expect(isBlockMarkdownSafeForPut('[link](https://example.com)')).toBe(true);
+  });
+
+  test('empty string is safe', () => {
+    expect(isBlockMarkdownSafeForPut('')).toBe(true);
+  });
+});
+
 describe('collectChangedBlocks', () => {
   function block(id: string, markdown: string, content?: CraftBlock[]): CraftBlock {
     return { id, type: 'text', markdown, content };
   }
 
-  test('returns empty array when no blocks match', () => {
+  test('returns empty changed/skipped when no blocks match', () => {
     const blocks = [block('1', 'no tags here')];
-    expect(collectChangedBlocks(blocks, 'corp', 'company')).toEqual([]);
+    const result = collectChangedBlocks(blocks, 'corp', 'company');
+    expect(result.changed).toEqual([]);
+    expect(result.skipped).toEqual([]);
   });
 
   test('returns changed block with updated markdown', () => {
     const blocks = [block('1', '#corp tagged')];
-    expect(collectChangedBlocks(blocks, 'corp', 'company')).toEqual([
+    const result = collectChangedBlocks(blocks, 'corp', 'company');
+    expect(result.changed).toEqual([
       { id: '1', markdown: '#company tagged' },
     ]);
+    expect(result.skipped).toEqual([]);
   });
 
   test('skips blocks where tag does not appear', () => {
     const blocks = [block('1', '#other'), block('2', '#corp')];
     const result = collectChangedBlocks(blocks, 'corp', 'company');
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('2');
+    expect(result.changed).toHaveLength(1);
+    expect(result.changed[0].id).toBe('2');
   });
 
   test('recurses into nested content blocks', () => {
     const child = block('child', '#corp in child');
     const parent = block('parent', 'no tag', [child]);
     const result = collectChangedBlocks([parent], 'corp', 'company');
-    expect(result).toEqual([{ id: 'child', markdown: '#company in child' }]);
+    expect(result.changed).toEqual([{ id: 'child', markdown: '#company in child' }]);
   });
 
   test('collects changes from both parent and child', () => {
     const child = block('child', '#corp');
     const parent = block('parent', '#corp', [child]);
     const result = collectChangedBlocks([parent], 'corp', 'company');
-    expect(result).toHaveLength(2);
-    expect(result.map(b => b.id).sort()).toEqual(['child', 'parent']);
+    expect(result.changed).toHaveLength(2);
+    expect(result.changed.map(b => b.id).sort()).toEqual(['child', 'parent']);
   });
 
   test('blocks without markdown field are skipped', () => {
     const blocks: CraftBlock[] = [{ id: '1', type: 'image' }];
-    expect(collectChangedBlocks(blocks, 'corp', 'company')).toEqual([]);
+    const result = collectChangedBlocks(blocks, 'corp', 'company');
+    expect(result.changed).toEqual([]);
+    expect(result.skipped).toEqual([]);
+  });
+
+  test('skips blocks with HTML tags in markdown', () => {
+    const blocks = [block('1', '<span>#corp</span> text')];
+    const result = collectChangedBlocks(blocks, 'corp', 'company');
+    expect(result.changed).toEqual([]);
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].id).toBe('1');
+    expect(result.skipped[0].reason).toBe('contains HTML');
+  });
+
+  test('skips blocks with multi-block content', () => {
+    const blocks = [block('1', '#corp\n\nmore text')];
+    const result = collectChangedBlocks(blocks, 'corp', 'company');
+    expect(result.changed).toEqual([]);
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toBe('multi-block content');
+  });
+
+  test('separates safe and unsafe blocks in same tree', () => {
+    const safe = block('safe', '#corp plain');
+    const unsafe = block('unsafe', '<b>#corp</b>');
+    const result = collectChangedBlocks([safe, unsafe], 'corp', 'company');
+    expect(result.changed).toHaveLength(1);
+    expect(result.changed[0].id).toBe('safe');
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].id).toBe('unsafe');
+  });
+
+  test('no-match blocks are neither changed nor skipped', () => {
+    const noMatch = block('1', 'no tags');
+    const htmlNoMatch = block('2', '<span>no tags</span>');
+    const result = collectChangedBlocks([noMatch, htmlNoMatch], 'corp', 'company');
+    expect(result.changed).toEqual([]);
+    expect(result.skipped).toEqual([]);
   });
 });
 

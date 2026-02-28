@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label"
 import {
   computeTagRename,
   executeTagRename,
-  clearCache,
   createFetcher,
   type GraphNode,
   type GraphData,
@@ -80,10 +79,6 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
       setResult(res)
 
       if (!abortRef.current.signal.aborted) {
-        if (res.errors.length > 0) {
-          // partial failure — clear cache so next load rebuilds from ground truth
-          await clearCache(apiUrl)
-        }
         track("Tag Rename Execute", {
           documents: res.savedDocumentCount,
           errors: res.errors.length,
@@ -107,9 +102,10 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
   }
 
   function handleDone() {
-    // only patch graph on full success — partial failure already cleared cache,
-    // so refresh will rebuild from ground truth
-    if (result && result.errors.length === 0 && preview) {
+    // only patch graph/cache when all saveable docs were saved;
+    // partial API failures leave some docs with the old tag — patching
+    // the full renameMap would make the graph inconsistent until refresh
+    if (result && result.savedDocumentCount > 0 && result.savedDocumentCount === result.affectedDocumentCount && preview) {
       onRenameComplete(preview.renameMap)
     }
     onClose()
@@ -232,18 +228,24 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
           )}
 
           {/* DONE phase */}
-          {phase === "done" && result && (
+          {phase === "done" && result && (() => {
+            const hasErrors = result.errors.length > 0
+            const hasSkips = result.skippedBlockCount > 0
+            const isFullSuccess = !hasErrors && !hasSkips
+            const isTotalFailure = result.savedDocumentCount === 0
+
+            return (
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-sm">
-                {result.errors.length === 0 ? (
+                {isFullSuccess ? (
                   <IconCheck className="h-4 w-4 text-green-500 shrink-0" />
-                ) : result.savedDocumentCount > 0 ? (
-                  <IconAlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-                ) : (
+                ) : isTotalFailure ? (
                   <IconAlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                ) : (
+                  <IconAlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                 )}
                 <span>
-                  {result.errors.length === 0
+                  {isFullSuccess
                     ? <>Renamed <code className="font-mono">#{oldTagPath}</code> to <code className="font-mono">#{newTagPath.trim()}</code></>
                     : result.savedDocumentCount > 0
                       ? <>Partially renamed <code className="font-mono">#{oldTagPath}</code></>
@@ -254,27 +256,34 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
               <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm space-y-0.5">
                 <div>{result.savedDocumentCount} of {result.affectedDocumentCount} documents saved</div>
                 <div>{result.savedBlockCount} blocks modified</div>
-                {result.errors.length > 0 && (
+                {hasSkips && (
+                  <div className="text-amber-600 dark:text-amber-400">{result.skippedBlockCount} {result.skippedBlockCount === 1 ? 'block' : 'blocks'} skipped (unsupported markdown)</div>
+                )}
+                {hasErrors && (
                   <div className="text-destructive">{result.errors.length} {result.errors.length === 1 ? 'error' : 'errors'} (check console for details)</div>
                 )}
               </div>
-              {result.errors.length === 0 && (
+              {isFullSuccess && (
                 <p className="text-xs text-muted-foreground">
                   The graph will update to reflect the changes. Did Graft help? Consider sponsoring.
                 </p>
               )}
-              {result.errors.length > 0 && result.savedDocumentCount > 0 && (
+              {!isFullSuccess && result.savedDocumentCount > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Some documents failed. The graph will update for successful renames. Refresh to retry failed ones.
+                  {hasSkips && 'Some blocks contain HTML or multi-paragraph content that Craft cannot accept via API. '}
+                  The graph will update for successful renames.{hasErrors && ' Refresh to retry failed documents.'}
                 </p>
               )}
-              {result.errors.length > 0 && result.savedDocumentCount === 0 && (
+              {isTotalFailure && (
                 <p className="text-xs text-muted-foreground">
-                  No documents were saved. Check the browser console for the error details from the Craft API.
+                  {hasSkips && !hasErrors
+                    ? 'All matching blocks contain unsupported markdown (HTML tags or multi-paragraph content). These must be edited manually in Craft.'
+                    : 'No documents were saved. Check the browser console for the error details from the Craft API.'}
                 </p>
               )}
             </div>
-          )}
+            )
+          })()}
 
           {/* ERROR phase */}
           {phase === "error" && (
@@ -315,7 +324,7 @@ export function TagRenameDialog({ node, graphData, onClose, onRenameComplete }: 
           )}
           {phase === "done" && (
             <>
-              {result && result.errors.length === 0 && (
+              {result && result.savedDocumentCount > 0 && result.errors.length === 0 && (
                 <a
                   href="https://1ar.io/tools/graft"
                   target="_blank"
