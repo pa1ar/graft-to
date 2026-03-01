@@ -101,6 +101,46 @@ describe('isBlockMarkdownSafeForPut', () => {
   test('empty string is safe', () => {
     expect(isBlockMarkdownSafeForPut('')).toBe(true);
   });
+
+  test('Windows line endings (CRLF double) is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('para one\r\n\r\npara two')).toBe(false);
+  });
+
+  test('newline followed by heading is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('text\n# heading')).toBe(false);
+  });
+
+  test('newline followed by unordered list item is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('text\n- item')).toBe(false);
+    expect(isBlockMarkdownSafeForPut('text\n* item')).toBe(false);
+    expect(isBlockMarkdownSafeForPut('text\n+ item')).toBe(false);
+  });
+
+  test('newline followed by ordered list item is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('text\n1. item')).toBe(false);
+  });
+
+  test('newline followed by blockquote is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('text\n> quote')).toBe(false);
+  });
+
+  test('newline followed by code fence is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('text\n```code```')).toBe(false);
+  });
+
+  test('newline followed by horizontal rule is unsafe', () => {
+    expect(isBlockMarkdownSafeForPut('text\n---')).toBe(false);
+    expect(isBlockMarkdownSafeForPut('text\n___')).toBe(false);
+    expect(isBlockMarkdownSafeForPut('text\n***')).toBe(false);
+  });
+
+  test('inline list marker without preceding newline is safe', () => {
+    expect(isBlockMarkdownSafeForPut('use - for lists')).toBe(true);
+  });
+
+  test('inline hash without preceding newline is safe', () => {
+    expect(isBlockMarkdownSafeForPut('#tag at start')).toBe(true);
+  });
 });
 
 describe('collectChangedBlocks', () => {

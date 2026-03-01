@@ -8,12 +8,14 @@ import type { CraftGraphFetcher } from './fetcher';
 
 /** HTML tags or multi-block content that Craft's PUT endpoint rejects */
 const HTML_TAG_REGEX = /<\/?[a-zA-Z][^>]*>/;
-const MULTI_BLOCK_REGEX = /\n\n/;
+// craft splits blocks on more than just \n\n — headings, lists, blockquotes,
+// code fences, and horizontal rules after a newline all produce multi-block output
+const MULTI_BLOCK_REGEX = /\r?\n\r?\n|\n(?:#|[-*+] |\d+\. |> |```|---|___|\*\*\*)/;
 
 /**
  * Check if a block's markdown is safe to send back via PUT.
- * Craft's GET can return HTML tags (<span>, etc.) and multi-paragraph content
- * that its own PUT endpoint rejects with VALIDATION_ERROR.
+ * Craft's GET can return HTML tags (<span>, etc.) and multi-block content
+ * that its own PUT endpoint rejects with VALIDATION_ERROR or MARKDOWN_PARSING_ERROR.
  */
 export function isBlockMarkdownSafeForPut(markdown: string): boolean {
   return !HTML_TAG_REGEX.test(markdown) && !MULTI_BLOCK_REGEX.test(markdown);
