@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { detectDocumentChanges } from '../fetcher';
+import {
+  CraftGraphBuildError,
+  CraftGraphFetcher,
+  detectDocumentChanges,
+} from '../fetcher';
 import type { DocumentMetadata } from '../types';
 
 describe('detectDocumentChanges', () => {
@@ -116,5 +120,77 @@ describe('detectDocumentChanges', () => {
     expect(result.added).toEqual([]);
     expect(result.modified).toEqual([]);
     expect(result.deleted).toEqual([]);
+  });
+});
+
+describe('CraftGraphFetcher resilience', () => {
+  test('retries transient 5xx responses like craft-cli', async () => {
+    let calls = 0;
+    const mockFetch = (async () => {
+      calls++;
+      if (calls === 1) return new Response('{}', { status: 502 });
+      return Response.json({ items: [] });
+    }) as typeof fetch;
+
+    const fetcher = new CraftGraphFetcher(
+      { baseUrl: 'https://example.test/api/v1', apiKey: 'test' },
+      { minRequestIntervalMs: 0, backoffBaseMs: 0, random: () => 0, fetch: mockFetch }
+    );
+
+    await expect(fetcher.fetchAllDocuments()).resolves.toEqual([]);
+    expect(calls).toBe(2);
+  });
+
+  test('rejects an incomplete full graph so it cannot be cached', async () => {
+    const mockFetch = (async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith('/documents')) {
+        return Response.json({
+          items: [{ id: 'doc-1', title: 'Rate-limited document' }],
+        });
+      }
+      if (url.pathname.endsWith('/blocks')) {
+        return new Response('{"error":"upstream failed"}', { status: 500 });
+      }
+      return new Response('{}', { status: 404 });
+    }) as typeof fetch;
+
+    const fetcher = new CraftGraphFetcher(
+      { baseUrl: 'https://example.test/api/v1', apiKey: 'test' },
+      { minRequestIntervalMs: 0, maxRetries: 0, fetch: mockFetch }
+    );
+
+    await expect(fetcher.buildGraphOptimized()).rejects.toBeInstanceOf(CraftGraphBuildError);
+  });
+
+  test('rejects an incomplete incremental graph so cached metadata stays retryable', async () => {
+    const mockFetch = (async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith('/documents')) {
+        return Response.json({
+          items: [{ id: 'doc-1', title: 'Changed document', lastModifiedAt: '2026-08-03' }],
+        });
+      }
+      if (url.pathname.endsWith('/documents/search')) {
+        return Response.json({ items: [] });
+      }
+      if (url.pathname.endsWith('/blocks')) {
+        return new Response('{"error":"upstream failed"}', { status: 502 });
+      }
+      return new Response('{}', { status: 404 });
+    }) as typeof fetch;
+
+    const fetcher = new CraftGraphFetcher(
+      { baseUrl: 'https://example.test/api/v1', apiKey: 'test' },
+      { minRequestIntervalMs: 0, maxRetries: 0, fetch: mockFetch }
+    );
+
+    await expect(fetcher.buildGraphIncrementalOptimized(
+      [{ id: 'doc-1', title: 'Changed document', lastModifiedAt: '2026-08-02' }],
+      {
+        nodes: [{ id: 'doc-1', title: 'Changed document', type: 'document', linkCount: 0 }],
+        links: [],
+      }
+    )).rejects.toBeInstanceOf(CraftGraphBuildError);
   });
 });

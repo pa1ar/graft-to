@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.3 - Craft API Resilience
+
+### Fixed
+- Full graph scans now pace requests against Craft's current 100-request window and slow further as the remaining budget drops
+- Craft `Retry-After` and `x-ratelimit-*` headers now pass through the proxy to the browser client
+- 429, 5xx, and network failures retry with bounded exponential backoff and jitter
+- Failed full or incremental document fetches stop the sync and preserve the last complete IndexedDB cache
+
+### New
+- Request-policy unit coverage for current Craft rate-limit headers, transient retries, and incomplete graph rejection
+
+---
+
 ## 0.6.2 - Tag Rename Error Handling
 
 ### Fixed

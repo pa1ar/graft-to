@@ -17,6 +17,13 @@ import type {
   GraphBuildResult,
 } from './types';
 import { buildGraphData, calculateNodeColor, extractLinksFromBlock, rebuildNodeRelationships, extractBlockLinks, extractTagsFromBlock } from './parser';
+import {
+  getRateAwareIntervalMs,
+  getRetryDelayMs,
+  isRetriableStatus,
+  readRateLimitState,
+  shouldPauseForRateLimit,
+} from './request-policy';
 
 export class CraftAPIError extends Error {
   constructor(
@@ -29,9 +36,57 @@ export class CraftAPIError extends Error {
   }
 }
 
+export interface GraphBuildFailure {
+  documentId: string;
+  documentTitle: string;
+  error: unknown;
+}
+
+export class CraftGraphBuildError extends Error {
+  constructor(public failures: GraphBuildFailure[]) {
+    const first = failures[0];
+    const suffix = failures.length > 1 ? ` and ${failures.length - 1} more` : '';
+    super(`Graph sync stopped after Craft failed for "${first?.documentTitle ?? 'Unknown document'}"${suffix}. The previous cache was preserved.`);
+    this.name = 'CraftGraphBuildError';
+  }
+}
+
+export interface CraftFetcherTuning {
+  minRequestIntervalMs?: number;
+  maxRetries?: number;
+  backoffBaseMs?: number;
+  random?: () => number;
+  fetch?: typeof fetch;
+}
+
 // max parallel requests to avoid rate limiting
 const DEFAULT_CONCURRENCY = 5;
-const RATE_LIMIT_COOLDOWN_MS = 10000; // 10 seconds
+const DEFAULT_MIN_REQUEST_INTERVAL_MS = 750;
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_BACKOFF_BASE_MS = 500;
+
+function abortError(): Error {
+  const error = new Error('Operation aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.reject(abortError());
+  if (ms <= 0) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortError());
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 /**
  * detect which documents were added, modified, or deleted by comparing
@@ -78,30 +133,96 @@ export function detectDocumentChanges(
 export class CraftGraphFetcher {
   private config: CraftAPIConfig;
   private onProgress?: (current: number, total: number, message: string) => void;
-  private cooldownUntil = 0; // global cooldown timestamp
+  private cooldownUntil = 0;
+  private nextRequestAt = 0;
+  private requestIntervalMs: number;
+  private readonly minRequestIntervalMs: number;
+  private readonly maxRetries: number;
+  private readonly backoffBaseMs: number;
+  private readonly random: () => number;
+  private readonly fetchFn: typeof fetch;
 
-  constructor(config: CraftAPIConfig) {
+  constructor(config: CraftAPIConfig, tuning: CraftFetcherTuning = {}) {
     this.config = config;
+    this.minRequestIntervalMs = tuning.minRequestIntervalMs ?? DEFAULT_MIN_REQUEST_INTERVAL_MS;
+    this.requestIntervalMs = this.minRequestIntervalMs;
+    this.maxRetries = tuning.maxRetries ?? DEFAULT_MAX_RETRIES;
+    this.backoffBaseMs = tuning.backoffBaseMs ?? DEFAULT_BACKOFF_BASE_MS;
+    this.random = tuning.random ?? Math.random;
+    this.fetchFn = tuning.fetch ?? globalThis.fetch;
   }
 
-  private async waitForCooldown(): Promise<void> {
+  private async waitForRequestSlot(signal?: AbortSignal): Promise<void> {
     const now = Date.now();
-    if (this.cooldownUntil > now) {
-      const waitMs = this.cooldownUntil - now;
-      this.onProgress?.(0, 0, `Cooling down (${Math.ceil(waitMs / 1000)}s)...`);
-      await new Promise(resolve => setTimeout(resolve, waitMs));
+    const scheduledAt = Math.max(now, this.cooldownUntil, this.nextRequestAt);
+    this.nextRequestAt = scheduledAt + this.requestIntervalMs;
+
+    if (scheduledAt > now) {
+      await sleep(scheduledAt - now, signal);
     }
+
+    if (this.cooldownUntil > Date.now()) {
+      const waitMs = this.cooldownUntil - Date.now();
+      this.onProgress?.(0, 0, `Craft API cooling down (${Math.ceil(waitMs / 1000)}s)...`);
+      await sleep(waitMs, signal);
+    }
+  }
+
+  private updateRateLimitPolicy(headers: Headers): void {
+    const state = readRateLimitState(headers);
+    this.requestIntervalMs = getRateAwareIntervalMs(state, this.minRequestIntervalMs);
+
+    if (shouldPauseForRateLimit(state) && state.resetAfterMs !== undefined) {
+      this.cooldownUntil = Math.max(this.cooldownUntil, Date.now() + state.resetAfterMs);
+    }
+  }
+
+  private async fetchWithRetry(
+    url: string,
+    init: RequestInit,
+    signal?: AbortSignal,
+    retries = this.maxRetries
+  ): Promise<Response> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      await this.waitForRequestSlot(signal);
+
+      try {
+        const response = await this.fetchFn(url, { ...init, signal });
+        this.updateRateLimitPolicy(response.headers);
+
+        if (response.ok || !isRetriableStatus(response.status) || attempt === retries) {
+          return response;
+        }
+
+        const delay = getRetryDelayMs(response, attempt, this.backoffBaseMs, this.random);
+        this.cooldownUntil = Math.max(this.cooldownUntil, Date.now() + delay);
+        this.onProgress?.(0, 0, `Craft API ${response.status}, retrying in ${Math.ceil(delay / 1000)}s...`);
+        console.warn(`[API] ${response.status}, retrying in ${delay}ms (${retries - attempt} retries left)`);
+      } catch (error) {
+        if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) throw error;
+        lastError = error;
+        if (attempt === retries) throw error;
+
+        const delay = Math.round(
+          this.backoffBaseMs * Math.pow(2, attempt) * (0.8 + this.random() * 0.4)
+        );
+        this.cooldownUntil = Math.max(this.cooldownUntil, Date.now() + delay);
+        this.onProgress?.(0, 0, `Craft API unavailable, retrying in ${Math.ceil(delay / 1000)}s...`);
+        console.warn(`[API] Network error, retrying in ${delay}ms (${retries - attempt} retries left)`, error);
+      }
+    }
+
+    throw lastError;
   }
 
   private async fetchAPI<T>(
     endpoint: string,
     params: Record<string, string> = {},
     signal?: AbortSignal,
-    retries = 3
+    retries = this.maxRetries
   ): Promise<T> {
-    // wait if global cooldown is active (from another worker hitting 429)
-    await this.waitForCooldown();
-
     let url: string;
     let headers: Record<string, string>;
 
@@ -133,22 +254,9 @@ export class CraftGraphFetcher {
       }
     }
 
-    const response = await fetch(url, { headers, signal });
+    const response = await this.fetchWithRetry(url, { headers }, signal, retries);
 
     if (!response.ok) {
-      // handle rate limit (429) with global cooldown
-      if (response.status === 429 && retries > 0) {
-        const retryAfter = response.headers.get('Retry-After');
-        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : RATE_LIMIT_COOLDOWN_MS;
-
-        // set global cooldown so all workers pause
-        this.cooldownUntil = Date.now() + delay;
-        console.warn(`[API] Rate limited, all workers cooling down for ${delay / 1000}s... (${retries} retries left)`);
-
-        await this.waitForCooldown();
-        return this.fetchAPI<T>(endpoint, params, signal, retries - 1);
-      }
-
       const errorText = await response.text();
       // try to extract details from proxy JSON wrapper
       let details = errorText;
@@ -319,10 +427,8 @@ export class CraftGraphFetcher {
     endpoint: string,
     body: unknown,
     signal?: AbortSignal,
-    retries = 3
+    retries = this.maxRetries
   ): Promise<T> {
-    await this.waitForCooldown();
-
     let url: string;
     let headers: Record<string, string>;
 
@@ -347,26 +453,13 @@ export class CraftGraphFetcher {
       }
     }
 
-    const response = await fetch(url, {
+    const response = await this.fetchWithRetry(url, {
       method: 'PUT',
       headers,
       body: JSON.stringify(body),
-      signal,
-    });
+    }, signal, retries);
 
     if (!response.ok) {
-      // handle rate limit (429) with global cooldown — same pattern as fetchAPI
-      if (response.status === 429 && retries > 0) {
-        const retryAfter = response.headers.get('Retry-After');
-        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : RATE_LIMIT_COOLDOWN_MS;
-
-        this.cooldownUntil = Date.now() + delay;
-        console.warn(`[API] PUT rate limited, cooling down for ${delay / 1000}s... (${retries} retries left)`);
-
-        await this.waitForCooldown();
-        return this.fetchAPIPut<T>(endpoint, body, signal, retries - 1);
-      }
-
       const errorText = await response.text();
       // try to extract details from proxy JSON wrapper
       let details = errorText;
@@ -442,8 +535,11 @@ export class CraftGraphFetcher {
       return response.blocks;
     }
     
-    console.warn('Unexpected blocks response format for doc', documentId, ':', response);
-    return [];
+    throw new CraftAPIError(
+      `Unexpected blocks response format for document ${documentId}`,
+      undefined,
+      response
+    );
   }
 
   async fetchBlocksParallel(
@@ -487,7 +583,10 @@ export class CraftGraphFetcher {
     return results;
   }
 
-  async fetchFolders(signal?: AbortSignal): Promise<import('./types').CraftFolder[]> {
+  async fetchFolders(
+    signal?: AbortSignal,
+    throwOnError = false
+  ): Promise<import('./types').CraftFolder[]> {
     try {
       console.log('[Fetch] Getting folder structure...');
       const response = await this.fetchAPI<import('./types').CraftFolderResponse>('/folders', {}, signal);
@@ -502,6 +601,7 @@ export class CraftGraphFetcher {
       return folders;
     } catch (error) {
       console.warn('[Fetch] Failed to fetch folders:', error);
+      if (throwOnError) throw error;
       return [];
     }
   }
@@ -509,7 +609,8 @@ export class CraftGraphFetcher {
   private async buildDocumentToFolderMap(
     folders: import('./types').CraftFolder[],
     signal?: AbortSignal,
-    onProgress?: (current: number, total: number, message: string) => void
+    onProgress?: (current: number, total: number, message: string) => void,
+    throwOnError = false
   ): Promise<Map<string, string>> {
     const docToFolder = new Map<string, string>();
 
@@ -552,6 +653,7 @@ export class CraftGraphFetcher {
         }
       } catch (error) {
         console.warn(`[Fetch] Failed to fetch documents for location ${location}:`, error);
+        if (throwOnError) throw error;
       }
     }
 
@@ -572,6 +674,7 @@ export class CraftGraphFetcher {
         }
       } catch (error) {
         console.warn(`[Fetch] Failed to fetch documents for folder ${folder.id}:`, error);
+        if (throwOnError) throw error;
       }
     }
 
@@ -1217,10 +1320,15 @@ export class CraftGraphFetcher {
 
     if (includeFolders) {
       callbacks?.onProgress?.(0, 0, 'Fetching folder structure...');
-      folders = await this.fetchFolders(signal);
+      folders = await this.fetchFolders(signal, true);
 
       if (folders.length > 0) {
-          docToFolderMap = await this.buildDocumentToFolderMap(folders, signal, callbacks?.onProgress);
+          docToFolderMap = await this.buildDocumentToFolderMap(
+            folders,
+            signal,
+            callbacks?.onProgress,
+            true
+          );
       }
     }
 
@@ -1230,6 +1338,7 @@ export class CraftGraphFetcher {
     const blocksMap = new Map<string, CraftBlock[]>();
     let completed = 0;
     const total = documents.length;
+    const failures: GraphBuildFailure[] = [];
 
     const addBlocksToMap = (docId: string, blocks: CraftBlock[]) => {
       for (const block of blocks) {
@@ -1244,7 +1353,7 @@ export class CraftGraphFetcher {
     const queue = [...documents];
 
     const worker = async () => {
-      while (queue.length > 0) {
+      while (queue.length > 0 && failures.length === 0) {
         if (signal?.aborted) {
           break;
         }
@@ -1302,6 +1411,11 @@ export class CraftGraphFetcher {
           }
         } catch (error) {
           console.warn(`[Graph] Failed to fetch blocks for ${doc.id}:`, error);
+          failures.push({
+            documentId: doc.id,
+            documentTitle: doc.title || 'Untitled',
+            error,
+          });
         }
 
         completed++;
@@ -1319,6 +1433,10 @@ export class CraftGraphFetcher {
 
     if (signal?.aborted) {
       throw new Error('Operation aborted');
+    }
+
+    if (failures.length > 0) {
+      throw new CraftGraphBuildError(failures);
     }
 
     // Step 4: Create tag nodes if enabled
@@ -1585,6 +1703,11 @@ export class CraftGraphFetcher {
             }
           } catch (error) {
             console.warn(`[Incremental] Failed to fetch blocks for ${docId}:`, error);
+            throw new CraftGraphBuildError([{
+              documentId: docId,
+              documentTitle: doc.title || 'Untitled',
+              error,
+            }]);
           }
         }
 
@@ -1740,4 +1863,3 @@ export class CraftGraphFetcher {
 export function createFetcher(baseUrl: string, apiKey?: string): CraftGraphFetcher {
   return new CraftGraphFetcher({ baseUrl, apiKey });
 }
-

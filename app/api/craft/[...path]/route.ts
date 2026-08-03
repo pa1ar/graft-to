@@ -6,6 +6,7 @@
  */
 
 import { NextRequest } from 'next/server'
+import { getCraftResponseHeaders } from '../response-headers'
 
 function getCredentials(request: NextRequest): { craftUrl: string; craftKey: string } | null {
   const craftUrl = request.headers.get('x-craft-url')
@@ -45,14 +46,14 @@ export async function GET(
       console.error('Craft API error:', response.status, errorText)
       return Response.json(
         { error: `Craft API error: ${response.statusText}`, details: errorText },
-        { status: response.status }
+        { status: response.status, headers: getCraftResponseHeaders(response) }
       )
     }
 
     const data = await response.json()
     return Response.json(data, {
       status: response.status,
-      headers: { 'Cache-Control': 'no-store' },
+      headers: getCraftResponseHeaders(response),
     })
   } catch (error) {
     console.error('Craft API proxy error:', error)
@@ -92,14 +93,14 @@ export async function PUT(
       console.error('Craft API error:', response.status, errorText)
       return Response.json(
         { error: `Craft API error: ${response.statusText}`, details: errorText },
-        { status: response.status }
+        { status: response.status, headers: getCraftResponseHeaders(response) }
       )
     }
 
     const data = await response.json()
     return Response.json(data, {
       status: response.status,
-      headers: { 'Cache-Control': 'no-store' },
+      headers: getCraftResponseHeaders(response),
     })
   } catch (error) {
     console.error('Craft API proxy error:', error)
@@ -109,4 +110,3 @@ export async function PUT(
     )
   }
 }
-

@@ -23,4 +23,4 @@ export * from './fetcher';
 export * from './cache';
 export * from './tag-rename';
 export * from './interaction';
-
+export * from './request-policy';
