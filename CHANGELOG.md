@@ -3,13 +3,13 @@
 ## 0.6.3 - Craft API Resilience
 
 ### Fixed
-- Full graph scans now pace requests against Craft's current 100-request window and slow further as the remaining budget drops
-- Craft `Retry-After` and `x-ratelimit-*` headers now pass through the proxy to the browser client
-- 429, 5xx, and network failures retry with bounded exponential backoff and jitter
-- Failed full or incremental document fetches stop the sync and preserve the last complete IndexedDB cache
+- Full graph scans now pace requests against Craft's current 100-request window and slow further as the remaining budget drops (`5d59dc3`)
+- Craft `Retry-After` and `x-ratelimit-*` headers now pass through the proxy to the browser client (`5d59dc3`)
+- 429, 5xx, and network failures retry with bounded exponential backoff and jitter (`5d59dc3`)
+- Failed full or incremental document fetches stop the sync and preserve the last complete IndexedDB cache (`5d59dc3`)
 
 ### New
-- Request-policy unit coverage for current Craft rate-limit headers, transient retries, and incomplete graph rejection
+- Request-policy unit coverage for current Craft rate-limit headers, transient retries, and incomplete graph rejection (`5d59dc3`)
 
 ---
 

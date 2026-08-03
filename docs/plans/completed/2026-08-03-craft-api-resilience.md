@@ -24,9 +24,9 @@ Graft stays within Craft's published response limits during full graph scans, re
 
 ## Proof of done
 
-- `bun test`
-- `bun lint`
-- `bun build`
-- Production deployment and live graft.to smoke check
-- Craft issue log and 01ar Graft project trace updated
-
+- `bun test`: 131 tests passed with 0 failures, including the live Craft tag-rename integration.
+- Targeted ESLint passed for the new request-policy and proxy files. Repository-wide lint remains blocked by 106 pre-existing errors outside this change.
+- `bun run build`: passed locally and in Vercel production.
+- Production deployment: `https://graft-pmu5hcry5-1ar.vercel.app`, aliased to `https://www.graft.to/`.
+- Production browser smoke: page identity, graph render, clean console, and Stats interaction passed.
+- Craft issue 1SS-400 and the 01ar Graft trace record the release.
