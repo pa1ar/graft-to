@@ -24,7 +24,7 @@ bun lint         # Run ESLint
 ```
 
 ### Key Paths
-- Main directory: `/Users/pavel/_code/craft-docs/graft-do`
+- Main directory: `~/dev/tools/graft-to`
 - Graph library: `lib/graph/` (framework-agnostic, reusable)
 - Components: `components/graph/` (React visualization)
 - API proxy: `app/api/craft/[...path]/` (privacy-first CORS proxy)
